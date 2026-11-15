@@ -418,3 +418,12 @@ body.tapped.react-dizzy .m-wobble { display: block !important; }
 #night { position: fixed; inset: 0; background: #000; z-index: 20; }
 #night-clock { position: absolute; transform: translate(-50%, -50%); color: #2b2f33; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; transition: left 2s, top 2s; }
 body.blackout #pick, body.blackout #wake, body.blackout #demo-badge { visibility: hidden; }
+
+/* ---------- sound ---------- */
+#sound-unlock {
+  position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right));
+  font: inherit; font-size: 13px; color: var(--fg); background: var(--track);
+  border: 1px solid #2c343d; border-radius: 99px; padding: 8px 14px;
+}
+.set-button { margin-top: 8px; width: 100%; font: inherit; font-size: 14px; color: var(--fg); background: var(--track); border: 1px solid #2c343d; border-radius: 12px; padding: 10px; }
+body.blackout #sound-unlock { visibility: hidden; }
