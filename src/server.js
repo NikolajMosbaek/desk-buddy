@@ -7,8 +7,9 @@ import { BuddyState } from './state.js';
 import { Stats, dayKey } from './stats.js';
 import { growth } from './growth.js';
 import { UsageTracker } from './usage.js';
-import { claudeDir, buddyDir } from './config.js';
 import { startDemo } from './demo.js';
+import { Approvals } from './approvals.js';
+import { claudeDir, buddyDir, loadConfig } from './config.js';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const MAX_BODY = 2 * 1024 * 1024;
@@ -118,12 +119,22 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     return growthVal;
   };
 
+  const approvals = new Approvals({
+    settings: () => {
+      const a = loadConfig({ create: false }).approvals || {};
+      return { enabled: Boolean(a.enabled), key: a.key, waitSec: a.waitSec };
+    },
+    onChange: () => broadcast(),
+    log,
+  });
+
   let demoRun = null;
   const snapshot = () => ({
     ...state.snapshot(),
     usage: demoRun ? demoRun.usage() : usage.snapshot(),
     today: stats.today(),
     growth: currentGrowth(),
+    approval: approvals.snapshot(),
     demo: Boolean(demoRun),
   });
 
@@ -179,10 +190,16 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     if (req.method === 'POST' && (p === '/hook' || p === '/status')) {
       if (!isLoopback(req)) { res.writeHead(403); return res.end(); }
       const body = await readBody(req);
-      // Answer straight away with a no-op so the hook never slows Claude Code down.
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{}');
+      // A permission question may wait for the phone (only with approvals on and a phone watching).
+      const held = p === '/hook' && body?.hook_event_name === 'PermissionRequest' && !demo && approvals.canHold(clients.size);
+      if (held) approvals.hold(body, res);
+      else {
+        // Everything else is answered straight away with a no-op, so hooks never slow Claude Code down.
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{}');
+      }
       if (!body) return;
+      if (p === '/hook') approvals.observe(body);
       if (process.env.DESK_BUDDY_DEBUG) log(`${p} ${body.hook_event_name || 'status'} ${body.tool_name || body.notification_type || ''}`);
       const changed = p === '/hook' ? applyHook(body) : state.applyStatus(body);
       if (changed) broadcast();
@@ -190,6 +207,17 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
         setTimeout(refreshUsage, 1500); // transcript is written just after Stop
       }
       return;
+    }
+
+    // The phone answers a permission question. The token gets you here; the signature decides.
+    if (req.method === 'POST' && p === '/api/approve') {
+      if (!authed(req, url)) { res.writeHead(401); return res.end(); }
+      const body = await readBody(req);
+      const r = approvals.answer(body || {});
+      if (r.ok && r.sessionId) state.permissionAnswered(r.sessionId);
+      if (r.ok) broadcast();
+      res.writeHead(r.ok ? 200 : r.status, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(r.ok ? { ok: true } : { ok: false, error: r.error }));
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
@@ -264,6 +292,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     clearInterval(pingTimer);
     if (demoRun) demoRun.stop();
     stats.flush();
+    approvals.close();
   });
   return { server, state, usage, stats };
 }

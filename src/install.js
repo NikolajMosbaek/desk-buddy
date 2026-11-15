@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { claudeDir, buddyDir, loadConfig, saveConfig } from './config.js';
+import { waitSeconds } from './approvals.js';
 
 export const HOOK_EVENTS = [
   'SessionStart',
@@ -78,6 +79,29 @@ function isOurStatusLine(sl) {
   return sl && typeof sl.command === 'string' && sl.command.includes('statusline.mjs') && sl.command.includes('desk-buddy');
 }
 
+// Every hook answers at once, except a permission question with approvals on: that one
+// may wait for the phone, so Claude Code must give it a little longer than the wait.
+function hookTimeout(ev, cfg) {
+  return ev === 'PermissionRequest' && cfg.approvals?.enabled ? waitSeconds(cfg.approvals.waitSec) + 10 : 2;
+}
+
+// Change only the timeout of our PermissionRequest hook (for `desk-buddy approvals on|off`).
+// Returns false when the hooks aren't installed yet.
+export function updatePermissionHook({ log = console.log } = {}) {
+  const cfg = loadConfig();
+  const settings = readSettings();
+  let found = false;
+  for (const g of settings.hooks?.PermissionRequest || []) {
+    for (const h of g.hooks || []) {
+      if (isOurHook(h)) { h.timeout = hookTimeout('PermissionRequest', cfg); found = true; }
+    }
+  }
+  if (!found) return false;
+  writeSettings(settings);
+  log(`Updated the PermissionRequest hook in ${settingsPath()} (timeout ${hookTimeout('PermissionRequest', cfg)} s).`);
+  return true;
+}
+
 export function install({ statusline = true, log = console.log } = {}) {
   const cfg = loadConfig();
   const settings = readSettings();
@@ -86,7 +110,7 @@ export function install({ statusline = true, log = console.log } = {}) {
   const url = `http://127.0.0.1:${cfg.port}/hook`;
   for (const ev of HOOK_EVENTS) {
     const list = Array.isArray(settings.hooks[ev]) ? settings.hooks[ev] : [];
-    list.push({ hooks: [{ type: 'http', url, timeout: 2, headers: { 'X-Desk-Buddy': '1' } }] });
+    list.push({ hooks: [{ type: 'http', url, timeout: hookTimeout(ev, cfg), headers: { 'X-Desk-Buddy': '1' } }] });
     settings.hooks[ev] = list;
   }
   log(`Added ${HOOK_EVENTS.length} hooks pointing at ${url}`);

@@ -490,3 +490,30 @@ body.blackout #level-chip { display: none; }
 .hat-choice { flex-wrap: wrap; }
 .hat-choice button { flex: 1 1 30%; white-space: pre-line; line-height: 1.25; }
 .hat-choice button[disabled] { opacity: 0.4; font-size: 12px; }
+
+/* ---------- approve from phone ---------- */
+#approval {
+  position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  width: min(560px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; z-index: 9; /* under the settings sheet */
+  background: #151a20; border: 2px solid var(--warn, #ffb547); border-radius: 20px; padding: 14px 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+#approval.hidden { display: none; }
+.ap-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-weight: 800; font-size: 18px; }
+.ap-project { color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-summary { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.ap-detail {
+  margin: 8px 0 0; padding: 8px 10px; background: #0b0d10; border-radius: 10px; color: var(--fg);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-height: 30vh; overflow: auto;
+}
+.ap-msg { color: #ffb547; font-size: 13px; margin-top: 8px; }
+.ap-msg:empty { display: none; }
+.ap-buttons[hidden], .ap-summary[hidden] { display: none; }
+.ap-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.ap-buttons button { font: inherit; font-size: 17px; font-weight: 800; padding: 14px; border: 0; border-radius: 14px; touch-action: manipulation; }
+.ap-allow { background: var(--accent); color: #062b25; }
+.ap-deny { background: #2a333c; color: var(--fg); }
+.ap-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+.set-key input { flex: 1; min-width: 0; font: 16px ui-monospace, Menlo, monospace; text-transform: uppercase; background: #0b0d10; color: var(--fg); border: 1px solid #2c343d; border-radius: 10px; padding: 8px 10px; }
+.set-key input[hidden] { display: none; }
+.set-key .set-button { margin: 0; flex: none; width: auto; padding: 8px 14px; }

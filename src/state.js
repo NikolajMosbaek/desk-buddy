@@ -224,6 +224,15 @@ export class BuddyState {
     return true;
   }
 
+  // A permission question was answered on the phone: back to thinking.
+  permissionAnswered(id) {
+    const s = this.sessions.get(id);
+    if (!s || s.mood !== 'waiting') return false;
+    s.updatedAt = Date.now();
+    this._setMood(s, 'thinking');
+    return true;
+  }
+
   // Status line payloads: rate limits, context and cost. Not a hook, so it never changes the mood.
   applyStatus(st) {
     if (!st || typeof st !== 'object') return false;

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { loadConfig, saveConfig, configPath } from '../src/config.js';
 import { startServer, lanAddresses } from '../src/server.js';
-import { install, uninstall, installStatus } from '../src/install.js';
+import { install, uninstall, installStatus, updatePermissionHook } from '../src/install.js';
+import { newApprovalKey, waitSeconds } from '../src/approvals.js';
 import { renderQR, qrWidth } from '../src/qr.js';
 
 const args = process.argv.slice(2);
@@ -49,6 +50,8 @@ Usage:
   desk-buddy status                      Show what is installed
   desk-buddy uninstall                   Remove everything desk-buddy added to settings.json
   desk-buddy new-token                   Rotate the access token (re-open the link on the phone)
+  desk-buddy approvals on [--wait 60]    Answer permission questions from the phone (opt-in)
+  desk-buddy approvals off|new-key       Turn it off again, or make a new approval key
 
 Add --no-qr to skip the QR code, or --qr-host <ip> to put another address in it.
 `);
@@ -72,7 +75,40 @@ try {
       console.log(`settings:   ${s.settingsFile}`);
       console.log(`hooks:      ${s.hooks}/${s.hooksExpected}`);
       console.log(`statusline: ${s.statusline ? 'bridge installed' : 'not installed (no live 5h/7d limits)'}`);
+      const ap = loadConfig({ create: false }).approvals;
+      console.log(`approvals:  ${ap?.enabled ? `on (waits ${waitSeconds(ap.waitSec)} s for the phone)` : 'off'}`);
       console.log(`config:     ${configPath()}`);
+      break;
+    }
+    case 'approvals': {
+      const sub = args[1] || 'status';
+      const c = loadConfig();
+      const a = { enabled: false, waitSec: 60, ...(c.approvals || {}) };
+      if (sub === 'on') {
+        a.enabled = true;
+        if (!a.key) a.key = newApprovalKey();
+        if (opt('wait')) a.waitSec = waitSeconds(opt('wait'));
+      } else if (sub === 'off') {
+        a.enabled = false;
+      } else if (sub === 'new-key') {
+        a.key = newApprovalKey();
+      } else if (sub !== 'status') {
+        throw new Error('Usage: desk-buddy approvals on [--wait N] | off | new-key | status');
+      }
+      c.approvals = a;
+      saveConfig(c);
+      if (sub === 'on' || sub === 'off') {
+        if (!updatePermissionHook()) console.log('Hooks are not installed yet. Run `desk-buddy install`.');
+        else console.log('Restart running Claude Code sessions so they pick it up.');
+      }
+      console.log(`\nApprove from the phone: ${a.enabled ? 'ON' : 'off'}`);
+      if (a.enabled) {
+        console.log(`A permission question waits up to ${waitSeconds(a.waitSec)} s for the phone, then falls back to the terminal.`);
+        console.log(`\nType this key on the phone (Settings > Approve from phone):\n\n    ${a.key}\n`);
+        console.log('The key signs every answer, so the page link alone cannot approve anything.');
+        console.log('The page is still plain HTTP: anyone on your network with the link sees the');
+        console.log('commands Claude asks about. Use a network you trust, ideally Tailscale.');
+      }
       break;
     }
     case 'url':
