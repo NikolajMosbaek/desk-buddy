@@ -298,3 +298,101 @@ body.offline #buddy { filter: grayscale(1) brightness(0.6); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; }
 }
+
+/* ---------- buddies ---------- */
+body[data-buddy="mochi"]    { --body: #f2a7bd; --body-hi: #ffdbe6; --limb: #df89a3; --ink: #4a2330; --cheek: #ff5f86; }
+body[data-buddy="bolt"]     { --body: #f5c242; --body-hi: #ffe9a3; --limb: #dca322; --ink: #3a2a05; --cheek: #ff7a45; }
+body[data-buddy="grumbles"] { --body: #8c7bd6; --body-hi: #c3b8f6; --limb: #7363c2; --ink: #1d1540; --cheek: #ff8fb0; }
+
+.body, .feat { display: none; }
+body[data-buddy="pip"] .body-pip,
+body[data-buddy="mochi"] .body-mochi,
+body[data-buddy="bolt"] .body-bolt,
+body[data-buddy="grumbles"] .body-grumbles { display: block; }
+
+body[data-buddy="mochi"] .feat-ears-round,
+body[data-buddy="bolt"] .feat-spikes,
+body[data-buddy="grumbles"] .feat-ears-cat,
+body[data-buddy="grumbles"] .feat-brows,
+body[data-buddy="grumbles"] .feat-whiskers { display: block; }
+body[data-buddy="mochi"] .antenna,
+body[data-buddy="grumbles"] .antenna { display: none; }
+
+.feat-ears-cat path, .feat-ears-round circle, .feat-spikes { fill: var(--limb); }
+.feat .inner { fill: var(--cheek); opacity: 0.55; }
+.feat-brows path { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+.feat-whiskers path { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; opacity: 0.45; }
+
+/* Mochi has sleepy, half-lidded eyes; Grumbles never smiles at rest. */
+body[data-buddy="mochi"] .eyes { transform: scaleY(0.82); }
+body[data-buddy="grumbles"][data-mood="idle"] .m-smile { display: none; }
+body[data-buddy="grumbles"][data-mood="idle"] .m-flat { display: block; }
+body[data-buddy="grumbles"] .pupil-g { transform: translate(0, 4px); }
+body[data-buddy="grumbles"][data-mood="idle"] .pupil-g { animation: none; transform: translate(-5px, 4px); }
+
+/* ---------- tap reactions ---------- */
+#buddy { cursor: pointer; touch-action: manipulation; }
+body.react-jump .react    { animation: r-jump 0.6s cubic-bezier(.3,.7,.4,1); }
+body.react-squish .react  { animation: r-squish 0.55s ease; }
+body.react-spin .react    { animation: r-spin 0.7s ease-in-out; }
+body.react-wiggle .react  { animation: r-wiggle 0.6s ease-in-out; }
+body.react-dizzy .react   { animation: r-dizzy 1.2s ease-in-out; }
+body.react-huff .react    { animation: r-huff 0.5s ease; }
+.react { transform-origin: 50% 90% !important; }
+
+body.tapped:not([data-buddy="grumbles"]) .sclera,
+body.tapped:not([data-buddy="grumbles"]) .pupil-g,
+body.tapped:not([data-buddy="grumbles"]) .eye .x { display: none; }
+body.tapped:not([data-buddy="grumbles"]) .eye .happy { display: block; }
+body.tapped .mouth { display: none !important; }
+body.tapped:not([data-buddy="grumbles"]) .m-grin { display: block !important; }
+body.tapped[data-buddy="grumbles"] .m-wobble { display: block !important; }
+body.tapped .cheek { opacity: 0.9; }
+body.react-dizzy .sclera, body.react-dizzy .pupil-g, body.react-dizzy .eye .happy { display: none !important; }
+body.react-dizzy .eye .x { display: block !important; }
+
+@keyframes r-jump   { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-30px) scale(0.95, 1.06); } 75% { transform: translateY(0) scale(1.08, 0.92); } }
+@keyframes r-squish { 0%, 100% { transform: scale(1, 1); } 30% { transform: scale(1.18, 0.82); } 60% { transform: scale(0.92, 1.08); } }
+@keyframes r-spin   { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+@keyframes r-wiggle { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-9deg); } 40% { transform: rotate(8deg); } 60% { transform: rotate(-6deg); } 80% { transform: rotate(4deg); } }
+@keyframes r-dizzy  { 0%, 100% { transform: rotate(0) translateX(0); } 25% { transform: rotate(-12deg) translateX(-8px); } 50% { transform: rotate(10deg) translateX(8px); } 75% { transform: rotate(-6deg) translateX(-4px); } }
+@keyframes r-huff   { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.06, 0.96) translateY(3px); } }
+
+/* ---------- speech bubble ---------- */
+#bubble {
+  position: absolute; top: 4%; left: 50%;
+  transform: translate(-50%, 8px) scale(0.9);
+  max-width: min(90%, 320px);
+  padding: 10px 16px; border-radius: 18px;
+  background: var(--fg); color: #111;
+  font-size: clamp(15px, 3.4vmin, 20px); font-weight: 700; text-align: center; line-height: 1.25;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+#bubble::after {
+  content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -8px;
+  border: 8px solid transparent; border-bottom: 0; border-top-color: var(--fg);
+}
+#bubble.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/* ---------- buddy picker ---------- */
+#pick {
+  position: fixed; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
+  font: inherit; font-size: 13px; color: var(--muted); background: transparent;
+  border: 1px solid #2c343d; border-radius: 99px; padding: 6px 12px; opacity: 0.55;
+}
+#picker { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; padding: 16px; z-index: 10; }
+#picker .sheet { background: #151a20; border-radius: 22px; padding: 18px; width: min(560px, 100%); max-height: 100%; overflow: auto; }
+#picker h2 { margin: 0 0 12px; font-size: 20px; }
+#picker-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.pick-card {
+  font: inherit; color: var(--fg); text-align: left; background: var(--track);
+  border: 2px solid transparent; border-radius: 16px; padding: 12px; display: flex; gap: 10px; align-items: center;
+}
+.pick-card.selected { border-color: var(--accent); }
+.pick-card .swatch { width: 34px; height: 34px; border-radius: 12px; flex: none; }
+.pick-card b { display: block; font-size: 16px; }
+.pick-card span.t { display: block; font-size: 12px; color: var(--muted); }
+#picker-done { margin-top: 14px; width: 100%; font: inherit; font-weight: 700; padding: 12px; border: 0; border-radius: 14px; background: var(--accent); color: #062b25; }
+body.tapped.react-dizzy .m-grin { display: none !important; }
+body.tapped.react-dizzy .m-wobble { display: block !important; }
