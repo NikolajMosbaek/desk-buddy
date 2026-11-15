@@ -1,0 +1,34 @@
+{
+  "name": "desk-buddy",
+  "version": "0.1.0",
+  "description": "A little desk companion for Claude Code. Shows an animated buddy that reacts to what Claude Code is doing, plus your subscription usage, on an old phone or tablet.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "desk-buddy": "bin/desk-buddy.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "web"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/desk-buddy.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "claude-code",
+    "hooks",
+    "dashboard",
+    "pwa"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NikolajMosbaek/desk-buddy.git"
+  },
+  "homepage": "https://github.com/NikolajMosbaek/desk-buddy#readme",
+  "author": "Nikolaj Simonsen"
+}

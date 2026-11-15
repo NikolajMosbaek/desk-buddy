@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Buddy">
+  <meta name="theme-color" content="#0b0d10">
+  <title>Desk Buddy</title>
+  <link rel="manifest" href="/manifest.webmanifest?t={{TOKEN}}">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/icon-180.png">
+  <link rel="stylesheet" href="/static/style.css">
+  <script>window.BUDDY_TOKEN = '{{TOKEN}}';</script>
+</head>
+<body data-mood="sleeping">
+  <div id="glow"></div>
+  <main id="stage">
+    <section id="buddy-wrap">
+      <svg id="buddy" viewBox="0 0 220 220" role="img" aria-label="Desk buddy">
+        <defs>
+          <radialGradient id="bodyGrad" cx="40%" cy="30%" r="80%">
+            <stop offset="0%" stop-color="var(--body-hi)"/>
+            <stop offset="100%" stop-color="var(--body)"/>
+          </radialGradient>
+        </defs>
+
+        <ellipse class="shadow" cx="110" cy="200" rx="58" ry="8"/>
+
+        <g class="bob">
+          <g class="antenna">
+            <path d="M110 52 Q112 36 118 26" class="stalk"/>
+            <circle class="bulb" cx="118" cy="24" r="7"/>
+          </g>
+
+          <g class="arm arm-l"><rect x="38" y="112" width="20" height="40" rx="10"/></g>
+          <g class="arm arm-r"><rect x="162" y="112" width="20" height="40" rx="10"/></g>
+
+          <rect class="body" x="50" y="50" width="120" height="132" rx="46" fill="url(#bodyGrad)"/>
+          <ellipse class="cheek" cx="74" cy="132" rx="9" ry="5"/>
+          <ellipse class="cheek" cx="146" cy="132" rx="9" ry="5"/>
+
+          <g class="eyes">
+            <g class="eye eye-l">
+              <ellipse class="sclera" cx="86" cy="106" rx="15" ry="18"/>
+              <g class="pupil-g"><circle class="pupil" cx="88" cy="108" r="8"/><circle class="glint" cx="91" cy="104" r="2.6"/></g>
+              <path class="x" d="M77 97 L95 115 M95 97 L77 115"/>
+              <path class="happy" d="M74 110 Q86 94 98 110"/>
+            </g>
+            <g class="eye eye-r">
+              <ellipse class="sclera" cx="134" cy="106" rx="15" ry="18"/>
+              <g class="pupil-g"><circle class="pupil" cx="136" cy="108" r="8"/><circle class="glint" cx="139" cy="104" r="2.6"/></g>
+              <path class="x" d="M125 97 L143 115 M143 97 L125 115"/>
+              <path class="happy" d="M122 110 Q134 94 146 110"/>
+            </g>
+          </g>
+
+          <g class="mouths">
+            <path class="mouth m-smile" d="M98 142 Q110 152 122 142"/>
+            <path class="mouth m-flat" d="M101 146 L119 146"/>
+            <path class="mouth m-o" d="M110 141 m-6 0 a6 7 0 1 0 12 0 a6 7 0 1 0 -12 0"/>
+            <path class="mouth m-grin" d="M94 139 Q110 160 126 139 Z"/>
+            <path class="mouth m-wobble" d="M96 147 q4 -5 8 0 t8 0 t8 0"/>
+          </g>
+
+          <g class="laptop">
+            <path class="lid" d="M72 150 L148 150 L142 186 L78 186 Z"/>
+            <circle class="logo" cx="110" cy="168" r="4"/>
+          </g>
+
+          <path class="sweat" d="M160 78 q6 10 0 14 q-6 -4 0 -14 Z"/>
+        </g>
+
+        <g class="thought">
+          <circle cx="170" cy="58" r="4"/>
+          <circle cx="182" cy="44" r="6"/>
+          <circle cx="198" cy="26" r="9"/>
+        </g>
+        <g class="zzz">
+          <text x="160" y="60">z</text>
+          <text x="174" y="42">z</text>
+          <text x="190" y="22">Z</text>
+        </g>
+        <g class="alert"><text x="178" y="56">!</text></g>
+      </svg>
+      <div id="confetti"></div>
+    </section>
+
+    <section id="info">
+      <div id="headline">
+        <h1 id="mood-title">…</h1>
+        <p id="activity"></p>
+      </div>
+
+      <div id="limits">
+        <div class="meter" id="m-5h">
+          <div class="meter-row"><span class="label" data-i18n="fiveHour"></span><span class="value"></span></div>
+          <div class="bar"><div class="fill"></div></div>
+          <div class="sub"></div>
+        </div>
+        <div class="meter" id="m-7d">
+          <div class="meter-row"><span class="label" data-i18n="sevenDay"></span><span class="value"></span></div>
+          <div class="bar"><div class="fill"></div></div>
+          <div class="sub"></div>
+        </div>
+        <p id="limits-missing" class="note"></p>
+      </div>
+
+      <div id="stats">
+        <div class="stat">
+          <span class="stat-label" data-i18n="today"></span>
+          <span class="stat-value" id="tokens-today">–</span>
+          <span class="stat-sub" id="tokens-detail"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label" data-i18n="context"></span>
+          <span class="stat-value" id="ctx">–</span>
+          <span class="stat-sub" id="ctx-detail"></span>
+        </div>
+      </div>
+
+      <ul id="sessions"></ul>
+    </section>
+  </main>
+
+  <div id="conn" class="hidden"><span class="dot"></span><span id="conn-text"></span></div>
+  <button id="wake" class="hidden" type="button"></button>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
