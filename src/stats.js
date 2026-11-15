@@ -162,7 +162,7 @@ export class Stats {
   // Streaks are kept incrementally in lifetime, so they outlive the pruning of old days.
   _markActiveDay(key) {
     const life = this.data.lifetime;
-    if (life.lastActiveDay === key) return;
+    if (life.lastActiveDay && key <= life.lastActiveDay) return; // same day, or the clock went back
     life.streak = life.lastActiveDay === prevDayKey(key) ? life.streak + 1 : 1;
     life.lastActiveDay = key;
     life.activeDays += 1;

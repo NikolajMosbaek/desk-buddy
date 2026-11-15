@@ -28,6 +28,7 @@ export function growth(stats) {
   const xp = xpFrom(life);
   const level = levelFor(xp);
   const g = { ...life, level, streak: stats.streak(), bestStreak: stats.bestStreak() };
+  const awarded = stats.awardedHats();
   return {
     level,
     xp,
@@ -35,7 +36,7 @@ export function growth(stats) {
     nextXp: xpForLevel(level + 1),
     streak: g.streak,
     bestStreak: g.bestStreak,
-    // Earned hats stay earned; list them in unlock order.
-    hats: HATS.filter((h) => h.test(g) || stats.awardedHats().includes(h.id)).map((h) => h.id),
+    // Earned hats stay earned, listed in the order they were earned (newest last).
+    hats: [...new Set([...awarded, ...HATS.filter((h) => h.test(g)).map((h) => h.id)])],
   };
 }

@@ -37,7 +37,7 @@
     const pick = S.get('hat');
     if (pick === 'none') return '';
     if (pick !== 'auto' && unlocked.includes(pick)) return pick;
-    return ORDER.filter((h) => unlocked.includes(h)).pop() || '';
+    return unlocked[unlocked.length - 1] || ''; // newest earned
   }
 
   function render() {
@@ -57,23 +57,35 @@
     chip.appendChild(bar);
   }
 
+  // A party waits until the buddy isn't asking for you and the screen isn't black.
+  let pending = null;
+  const canParty = () => document.body.dataset.mood !== 'waiting' && !document.body.classList.contains('blackout');
+  function party() {
+    if (!pending || !canParty()) return;
+    const line = pending;
+    pending = null;
+    B.react('react-jump', line, { ms: 900, sayMs: 4000 });
+    B.confetti();
+    window.BuddySound?.play('levelUp');
+  }
+
+  let lastDemo = null;
   document.addEventListener('buddy:state', (e) => {
     const next = e.detail.growth;
     if (!next) return;
-    const prev = g;
+    // Switching between demo and real (server restart) is not an achievement.
+    const prev = lastDemo === e.detail.demo ? g : null;
+    lastDemo = e.detail.demo;
     g = next;
     render();
-    if (!prev) return; // first frame: nothing new to celebrate
-    const newHats = next.hats.filter((h) => !prev.hats.includes(h));
-    if (next.level <= prev.level && !newHats.length) return;
-    if (document.body.dataset.mood === 'waiting') return; // don't drown out "needs you"
-    const line = newHats.length ? T.newHat(T.hats[newHats[newHats.length - 1]]) : T.levelUp(next.level);
-    // After the event reaction (tests, commit …) that usually comes in the same frame.
-    setTimeout(() => {
-      B.react('react-jump', line, { ms: 900, sayMs: 4000 });
-      B.confetti();
-      window.BuddySound?.play('done');
-    }, 1600);
+    if (prev) {
+      const newHats = next.hats.filter((h) => !prev.hats.includes(h));
+      if (newHats.length) pending = T.newHat(T.hats[newHats[newHats.length - 1]]);
+      else if (next.level > prev.level) pending = T.levelUp(next.level);
+      // After the event reaction (tests, commit …) that usually comes in the same frame.
+      if (pending) { setTimeout(party, 1600); return; }
+    }
+    party(); // one that had to wait
   });
   S.onChange((key) => { if (key === 'hat' || key === 'showLevel') render(); });
 

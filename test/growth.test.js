@@ -44,3 +44,13 @@ test('best streak survives pruning of old days', () => {
   st.data.days = {};
   assert.equal(st.bestStreak(), 4);
 });
+
+test('a clock going back does not break the streak', () => {
+  let t = at(1);
+  const st = new Stats(null, { now: () => t });
+  for (const d of [1, 2]) { t = at(d); st.record({ session_id: 's', hook_event_name: 'UserPromptSubmit' }); }
+  t = at(1); st.record({ session_id: 's', hook_event_name: 'UserPromptSubmit' });
+  t = at(3); st.record({ session_id: 's', hook_event_name: 'UserPromptSubmit' });
+  assert.equal(st.streak(), 3);
+  assert.equal(st.lifetime().activeDays, 3);
+});
