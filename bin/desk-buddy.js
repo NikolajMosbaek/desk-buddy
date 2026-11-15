@@ -2,6 +2,7 @@
 import { loadConfig, saveConfig, configPath } from '../src/config.js';
 import { startServer, lanAddresses } from '../src/server.js';
 import { install, uninstall, installStatus } from '../src/install.js';
+import { renderQR } from '../src/qr.js';
 
 const args = process.argv.slice(2);
 const cmd = args.includes('--help') || args.includes('-h') ? 'help' : (args[0] && !args[0].startsWith('-') ? args[0] : 'start');
@@ -21,8 +22,13 @@ function printUrls(cfg) {
   console.log('\nOpen one of these on your phone (same Wi-Fi, or Tailscale):');
   if (!u.list.length) console.log('  (no network interfaces found)');
   for (const a of u.list) console.log(`  ${a.url}${a.tailscale ? '   (Tailscale)' : `   (${a.name})`}`);
+  // A QR code for the first (preferred) address: point the phone's camera at it.
+  if (u.list.length && process.stdout.isTTY && !flag('no-qr')) {
+    console.log(`\nScan with the phone's camera (${u.list[0].address}):\n`);
+    console.log(renderQR(u.list[0].url));
+  }
   console.log(`\nOn this computer: ${u.local}`);
-  console.log('Tip: on a Mac, AirDrop the link to the phone, then Share > Add to Home Screen.\n');
+  console.log('Then on the phone: Share > Add to Home Screen.\n');
 }
 
 function help() {
@@ -36,6 +42,8 @@ Usage:
   desk-buddy status                      Show what is installed
   desk-buddy uninstall                   Remove everything desk-buddy added to settings.json
   desk-buddy new-token                   Rotate the access token (re-open the link on the phone)
+
+Add --no-qr to skip the QR code when printing the phone link.
 `);
 }
 
