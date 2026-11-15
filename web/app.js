@@ -210,10 +210,12 @@
         body.classList.add('offline');
         $('#conn-text').textContent = T.offline;
         $('#conn').classList.remove('hidden');
+        emit('buddy:offline', { offline: true });
       }, 4000);
-    } else {
+    } else if (body.classList.contains('offline')) {
       body.classList.remove('offline');
       $('#conn').classList.add('hidden');
+      emit('buddy:offline', { offline: false });
     }
   }
   function connect() {
@@ -225,6 +227,7 @@
         clockSkew = state.serverTime - Date.now();
         setOffline(false);
         render();
+        emit('buddy:state', state); // every frame, not just mood changes
       } catch { /* ignore malformed frame */ }
     };
     es.onerror = () => setOffline(true);

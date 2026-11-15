@@ -17,6 +17,9 @@
     },
   });
 
+  S.define('sound', false);
+  S.define('soundRepeat', true);
+
   let ctx = null;
   const pill = document.getElementById('sound-unlock');
   pill.textContent = T.unlock;
@@ -38,21 +41,34 @@
     pill.classList.toggle('hidden', !locked);
   }
 
-  // Any tap unlocks audio (must happen inside the gesture).
+  // Any tap unlocks audio (must happen inside the gesture). Returns a promise that
+  // settles once the context is running, or has given up.
   function unlock(force) {
-    if (!S.get('sound') && force !== true) return;
+    if (!S.get('sound') && force !== true) return Promise.resolve();
     const c = context();
-    if (c && c.state !== 'running') c.resume().then(refreshPill, refreshPill);
+    if (!c || c.state === 'running') return Promise.resolve();
+    // iOS sometimes needs a real buffer started inside the gesture, not just resume().
+    try {
+      const src = c.createBufferSource();
+      src.buffer = c.createBuffer(1, 1, 22050);
+      src.connect(c.destination);
+      src.start(0);
+    } catch { /* not fatal */ }
+    return c.resume().then(refreshPill, refreshPill);
   }
   document.addEventListener('click', unlock, true);
   document.addEventListener('touchend', unlock, true);
+  // After lock, Siri or a call the context is suspended or "interrupted"; try to come back.
+  const wake = () => { if (ctx && S.get('sound') && ctx.state !== 'running') ctx.resume().then(refreshPill, refreshPill); };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+  window.addEventListener('pageshow', wake);
 
   // Each buddy sounds a little different: pitch and tempo follow its personality.
   const VOICE = {
     pip: { pitch: 1, tempo: 1, wave: 'sine' },
     mochi: { pitch: 0.75, tempo: 1.35, wave: 'sine' },
     bolt: { pitch: 1.3, tempo: 0.7, wave: 'triangle' },
-    grumbles: { pitch: 0.6, tempo: 1.15, wave: 'triangle' },
+    grumbles: { pitch: 0.7, tempo: 1.15, wave: 'triangle' },
   };
 
   function tone(c, freq, start, dur, { wave = 'sine', gain = 0.22 } = {}) {
@@ -76,40 +92,67 @@
     error: [[-2, 0, 0.9], [-7, 0.3, 1.4]],
   };
 
-  function play(kind, { force = false } = {}) {
-    if (!S.get('sound') && !force) return;
-    const c = context();
-    if (!c || c.state !== 'running') { refreshPill(); return; }
+  function schedule(c, kind) {
     const v = VOICE[window.DeskBuddy?.buddyId] || VOICE.pip;
-    const t0 = c.currentTime + 0.02;
+    const t0 = c.currentTime + 0.08; // a little lead so the first attack isn't clipped after a resume
     for (const [semi, at, len] of PATTERNS[kind] || []) {
       const f = 440 * Math.pow(2, semi / 12) * 2 * v.pitch; // one octave up: cuts through a room
       tone(c, f, t0 + at * 0.5 * v.tempo, len * 0.5 * v.tempo, { wave: v.wave, gain: kind === 'error' ? 0.18 : 0.22 });
     }
   }
 
+  function play(kind, { force = false } = {}) {
+    if (!S.get('sound') && !force) return;
+    const c = ctx;
+    if (!c) { refreshPill(); return; } // never unlocked by a tap yet
+    if (c.state === 'running') { schedule(c, kind); return; }
+    // Suspended or interrupted (lock screen, call, Siri): try to resume without a tap.
+    // Only show the pill if it is still not running shortly after.
+    c.resume().then(() => { if (c.state === 'running') schedule(c, kind); }, () => {});
+    setTimeout(refreshPill, 500);
+  }
+
   let reminders = [];
   const clearReminders = () => { reminders.forEach(clearTimeout); reminders = []; };
 
-  document.addEventListener('buddy:mood', (e) => {
-    const { mood, prev } = e.detail;
-    if (prev === null) return; // page just loaded: don't chime for an old state
+  function startReminders() {
     clearReminders();
-    if (mood === 'waiting') {
-      play('waiting');
-      if (S.get('soundRepeat')) {
-        reminders = [60_000, 180_000].map((ms) => setTimeout(() => {
-          if (document.body.dataset.mood === 'waiting') play('waiting');
-        }, ms));
-      }
-    } else if (mood === 'done') {
-      play('done');
-    } else if (mood === 'error') {
-      play('error');
-    }
+    if (!S.get('sound') || !S.get('soundRepeat')) return;
+    reminders = [60_000, 180_000].map((ms) => setTimeout(() => {
+      if (document.body.dataset.mood === 'waiting') play('waiting');
+    }, ms));
+  }
+
+  // "Needs you" is tracked per session, so a second session asking while the buddy is
+  // already waiting still chimes and restarts the reminders.
+  let waitingIds = null; // null until the first frame: don't chime for an old state
+  document.addEventListener('buddy:state', (e) => {
+    const ids = new Set((e.detail.sessions || []).filter((s) => s.mood === 'waiting').map((s) => s.id));
+    const first = waitingIds === null;
+    const fresh = !first && [...ids].some((id) => !waitingIds.has(id));
+    waitingIds = ids;
+    if (!ids.size) { clearReminders(); return; }
+    if (fresh) play('waiting');
+    if (fresh || first) startReminders(); // after a reload: no chime, but still remind
   });
 
-  S.onChange((key) => { if (key === 'sound') { unlock(); refreshPill(); } });
+  document.addEventListener('buddy:mood', (e) => {
+    const { mood, prev } = e.detail;
+    if (prev === null) return;
+    if (mood === 'done') play('done');
+    else if (mood === 'error') play('error');
+  });
+
+  S.onChange((key) => {
+    if (key !== 'sound' && key !== 'soundRepeat') return;
+    if (key === 'sound' && !S.get('sound') && ctx && ctx.state === 'running') {
+      ctx.suspend().then(refreshPill, refreshPill); // release the phone's audio session
+    }
+    if (key === 'sound' && S.get('sound')) unlock();
+    if (waitingIds && waitingIds.size) startReminders(); // also clears when turned off
+    else clearReminders();
+    refreshPill();
+  });
   refreshPill();
 
   S.section('sound', T.title, (el) => {
@@ -119,7 +162,7 @@
     b.type = 'button';
     b.className = 'set-button';
     b.textContent = T.test;
-    b.addEventListener('click', (e) => { e.stopPropagation(); unlock(true); setTimeout(() => play('waiting', { force: true }), 80); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); unlock(true).then(() => play('waiting', { force: true })); });
     el.appendChild(b);
   });
 

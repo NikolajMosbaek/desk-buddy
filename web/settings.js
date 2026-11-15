@@ -3,17 +3,11 @@
 (() => {
   'use strict';
 
-  const DEFAULTS = {
-    sound: false,          // chimes for needs-you / done / error
-    soundRepeat: true,     // remind again while still waiting
-    blackout: 'night',     // 'never' | 'night' | 'asleep'
-    nightFrom: 22,
-    nightTo: 7,
-    hat: 'auto',           // 'auto' (best unlocked) | 'none' | a hat id
-  };
-
-  let values = { ...DEFAULTS };
-  try { Object.assign(values, JSON.parse(localStorage.getItem('settings') || '{}')); } catch { /* fresh */ }
+  // Each feature module declares its own keys with Settings.define(key, default).
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('settings') || '{}') || {}; } catch { /* fresh */ }
+  const values = {};
+  const defaults = {};
 
   const listeners = new Set();
   const sections = [];
@@ -22,13 +16,21 @@
 
   window.Settings = {
     lang,
+    // Stored values are only trusted when they have the same type as the default.
+    define(key, def) {
+      defaults[key] = def;
+      values[key] = typeof stored[key] === typeof def ? stored[key] : def;
+      return values[key];
+    },
     get: (key) => values[key],
     set(key, value) {
       values[key] = value;
-      try { localStorage.setItem('settings', JSON.stringify(values)); } catch { /* private mode */ }
+      stored[key] = value;
+      try { localStorage.setItem('settings', JSON.stringify(stored)); } catch { /* private mode */ }
       for (const fn of listeners) fn(key, value);
     },
-    onChange(fn) { listeners.add(fn); },
+    onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    isOpen: () => !document.getElementById('picker').classList.contains('hidden'),
     // build(container) fills a fresh <section> each time the sheet opens.
     section(id, title, build) { sections.push({ id, title, build }); },
     t: (dict) => dict[lang] || dict.en,
@@ -76,10 +78,14 @@
         b.type = 'button';
         b.textContent = label;
         b.className = values[key] === value ? 'on' : '';
+        b.setAttribute('aria-pressed', String(values[key] === value));
         b.addEventListener('click', (e) => {
           e.stopPropagation();
           window.Settings.set(key, value);
-          row.querySelectorAll('button').forEach((x) => { x.className = x === b ? 'on' : ''; });
+          row.querySelectorAll('button').forEach((x) => {
+            x.className = x === b ? 'on' : '';
+            x.setAttribute('aria-pressed', String(x === b));
+          });
         });
         row.appendChild(b);
       }

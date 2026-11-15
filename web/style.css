@@ -408,16 +408,18 @@ body.tapped.react-dizzy .m-wobble { display: block !important; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--track); border-radius: 12px; margin-top: 8px; font-size: 15px; }
 .set-row small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .set-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
-.set-row select { font: inherit; color: var(--fg); background: #0f1317; border: 1px solid #2c343d; border-radius: 8px; padding: 4px 8px; }
+.set-row select { font: inherit; font-size: 16px; /* below 16px iOS zooms on focus */ color: var(--fg); background: #0f1317; border: 1px solid #2c343d; border-radius: 8px; padding: 4px 8px; }
 .set-choice { display: flex; gap: 6px; background: var(--track); border-radius: 12px; padding: 4px; }
 .set-choice button { flex: 1; font: inherit; font-size: 14px; color: var(--muted); background: transparent; border: 0; border-radius: 9px; padding: 8px 6px; }
 .set-choice button.on { background: #2a333c; color: var(--fg); font-weight: 700; }
 .settings-section .note { margin-top: 8px; }
 
 /* ---------- night mode ---------- */
-#night { position: fixed; inset: 0; background: #000; z-index: 20; }
+#night { position: fixed; inset: 0; background: #000; z-index: 20; border: 0; padding: 0; margin: 0; width: 100%; font: inherit; }
 #night-clock { position: absolute; transform: translate(-50%, -50%); color: #2b2f33; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; transition: left 2s, top 2s; }
 body.blackout #pick, body.blackout #wake, body.blackout #demo-badge { visibility: hidden; }
+/* Stop painting the buddy under the black overlay: saves the power night mode is for. */
+body.blackout #stage, body.blackout #glow { display: none; }
 
 /* ---------- sound ---------- */
 #sound-unlock {
