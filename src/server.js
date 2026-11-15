@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BuddyState } from './state.js';
-import { Stats } from './stats.js';
+import { Stats, dayKey } from './stats.js';
+import { growth } from './growth.js';
 import { UsageTracker } from './usage.js';
 import { claudeDir, buddyDir } from './config.js';
 import { startDemo } from './demo.js';
@@ -74,11 +75,16 @@ export function lanAddresses() {
 // Demo mode starts mid-afternoon on a productive day, so the summary has something to show.
 function seedDemoStats(stats) {
   const now = Date.now();
+  stats.data.days = {};
   Object.assign(stats._day(now), {
     prompts: 23, tools: 182, files: 14, sessions: 3, activeMs: (4 * 60 + 12) * 60_000,
     testsPass: 6, testsFail: 2, commits: 5, pushes: 2, firstAt: now - 6 * 3600_000, lastAt: now,
   });
-  for (let i = 1; i <= 8; i++) stats._day(now - i * 86_400_000).prompts = 10 + i;
+  Object.assign(stats.data.lifetime, {
+    prompts: 900, tools: 7400, files: 610, sessions: 120, activeMs: 160 * 3600_000, testsPass: 150, testsFail: 41,
+    commits: 60, pushes: 20, activeDays: 31, streak: 9, bestStreak: 9, lastActiveDay: dayKey(now), since: now - 40 * 86_400_000, hats: [],
+  });
+  stats.rev += 1;
 }
 
 export function startServer({ port, token, host = '0.0.0.0', log = console.log, demo = false }) {
@@ -94,8 +100,22 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
   const applyHook = (ev) => {
     const seq = state.eventSeq;
     const changed = state.applyHook(ev);
-    stats.record(ev, state.eventSeq !== seq ? state.event.kind : null);
+    // Counting is a nice-to-have: it must never take the mood display down with it.
+    try { stats.record(ev, state.eventSeq !== seq ? state.event.kind : null); } catch (e) { log(`stats: ${e.message}`); }
     return changed;
+  };
+
+  // Growth only changes with the counters or the date; don't recompute it every frame.
+  let growthKey = null;
+  let growthVal = null;
+  const currentGrowth = () => {
+    const key = `${stats.rev}:${dayKey()}`;
+    if (key !== growthKey) {
+      growthVal = growth(stats);
+      stats.award(growthVal.hats); // earned hats are kept for good
+      growthKey = `${stats.rev}:${dayKey()}`;
+    }
+    return growthVal;
   };
 
   let demoRun = null;
@@ -103,7 +123,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     ...state.snapshot(),
     usage: demoRun ? demoRun.usage() : usage.snapshot(),
     today: stats.today(),
-    streak: stats.streak(),
+    growth: currentGrowth(),
     demo: Boolean(demoRun),
   });
 
@@ -121,10 +141,17 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     if (demoRun) return;
     try { if (usage.refresh()) broadcast(); } catch (e) { log(`usage: ${e.message}`); }
   };
-  if (demo) demoRun = startDemo({ state, applyHook, onChange: () => broadcast() });
+  if (demo) demoRun = startDemo({ state, applyHook, onChange: () => broadcast(), onLoop: () => seedDemoStats(stats) });
   refreshUsage();
   const usageTimer = setInterval(refreshUsage, USAGE_REFRESH_MS);
-  const tickTimer = setInterval(() => { if (state.tick()) broadcast(); }, 1000);
+  // Also broadcast at midnight, so "Today" doesn't show yesterday on a quiet phone.
+  let tickDay = dayKey();
+  const tickTimer = setInterval(() => {
+    const day = dayKey();
+    const newDay = day !== tickDay;
+    tickDay = day;
+    if (state.tick() || newDay) broadcast();
+  }, 1000);
   const pingTimer = setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20_000);
 
   const authed = (req, url) => {

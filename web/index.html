@@ -53,6 +53,29 @@
           <rect class="body body-mochi" x="40" y="62" width="140" height="120" rx="60" fill="url(#bodyGrad)"/>
           <rect class="body body-bolt" x="52" y="54" width="116" height="128" rx="32" fill="url(#bodyGrad)"/>
           <rect class="body body-grumbles" x="48" y="54" width="124" height="128" rx="40" fill="url(#bodyGrad)"/>
+          <!-- hats, unlocked as the buddy levels up (web/growth.js) -->
+          <g class="hats">
+            <g class="hat hat-party">
+              <path class="cone" d="M86 58 L110 4 L134 58 Q110 66 86 58 Z"/>
+              <path class="stripe" d="M95 38 L125 38 M101 24 L119 24"/>
+              <circle class="pom" cx="110" cy="5" r="7"/>
+            </g>
+            <g class="hat hat-beanie">
+              <path class="knit" d="M60 64 Q60 10 110 10 Q160 10 160 64 Z"/>
+              <rect class="rim" x="56" y="52" width="108" height="18" rx="9"/>
+              <circle class="pom" cx="110" cy="10" r="10"/>
+            </g>
+            <g class="hat hat-crown">
+              <path class="gold" d="M78 60 L76 24 L94 40 L110 16 L126 40 L144 24 L142 60 Q110 66 78 60 Z"/>
+              <circle class="gem" cx="110" cy="48" r="5"/>
+              <circle class="gem gem-s" cx="92" cy="52" r="3.5"/><circle class="gem gem-s" cx="128" cy="52" r="3.5"/>
+            </g>
+            <g class="hat hat-headphones">
+              <path class="band" d="M46 108 Q44 30 110 30 Q176 30 174 108"/>
+              <rect class="cup" x="32" y="92" width="24" height="42" rx="11"/>
+              <rect class="cup" x="164" y="92" width="24" height="42" rx="11"/>
+            </g>
+          </g>
           <g class="feat feat-brows">
             <path d="M70 84 L100 92"/><path d="M150 84 L120 92"/>
           </g>
@@ -107,6 +130,7 @@
         <g class="alert"><text x="178" y="56">!</text></g>
       </svg>
       <div id="confetti"></div>
+      <div id="level-chip" class="hidden"></div>
       <div id="bubble" aria-live="polite"></div>
     </section>
 
@@ -176,5 +200,6 @@
   <script src="/static/sound.js"></script>
   <script src="/static/events.js"></script>
   <script src="/static/today.js"></script>
+  <script src="/static/growth.js"></script>
 </body>
 </html>

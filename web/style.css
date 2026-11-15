@@ -269,7 +269,7 @@ body.show-today #stats { display: none; }
 .today-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--muted); font-size: 13px; }
 #today-streak { color: var(--accent); font-weight: 700; white-space: nowrap; }
 .today-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; }
-.today-grid b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.today-grid b { display: block; white-space: nowrap; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .today-grid span { color: var(--muted); font-size: 12px; }
 .today-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -308,6 +308,9 @@ body.show-today #stats { display: none; }
   #info { gap: 10px; }
   .meter + .meter { margin-top: 6px; }
   .stat-value { font-size: 20px; }
+  #today { padding: 8px 10px; }
+  .today-grid { margin: 4px 0 2px; }
+  .today-grid b { font-size: 18px; }
   #buddy { max-height: 88vh; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -450,3 +453,41 @@ body.blackout #stage, body.blackout #glow { display: none; }
 }
 .set-button { margin-top: 8px; width: 100%; font: inherit; font-size: 14px; color: var(--fg); background: var(--track); border: 1px solid #2c343d; border-radius: 12px; padding: 10px; }
 body.blackout #sound-unlock { visibility: hidden; }
+
+/* ---------- hats and level ---------- */
+.hat { display: none; }
+body[data-hat="party"] .hat-party,
+body[data-hat="beanie"] .hat-beanie,
+body[data-hat="crown"] .hat-crown,
+body[data-hat="headphones"] .hat-headphones { display: block; }
+/* A hat replaces whatever sticks out of the head. */
+body[data-hat] .antenna,
+body[data-hat="party"] .feat-spikes, body[data-hat="beanie"] .feat-spikes, body[data-hat="crown"] .feat-spikes { display: none !important; }
+/* Sit on each buddy's head: Mochi's is lower and wider. */
+body[data-buddy="mochi"] .hats { transform: translate(0, 12px) scale(1.1, 1); }
+body[data-buddy="bolt"] .hats, body[data-buddy="grumbles"] .hats { transform: translate(0, 4px); }
+body[data-buddy="mochi"] .hat-headphones, body[data-buddy="grumbles"] .hat-headphones { transform: translate(0, 0); }
+.hat-party .cone { fill: #ff7aa8; }
+.hat-party .stripe { fill: none; stroke: #ffe27a; stroke-width: 5; stroke-linecap: round; }
+.hat-party .pom, .hat-beanie .pom { fill: #fff3c4; }
+.hat-beanie .knit { fill: #5b8def; }
+.hat-beanie .rim { fill: #3f6fd1; }
+.hat-crown .gold { fill: #ffc940; stroke: #d99a00; stroke-width: 2; stroke-linejoin: round; }
+.hat-crown .gem { fill: #ff5d73; }
+.hat-crown .gem-s { fill: #5fd4bf; }
+.hat-headphones .band { fill: none; stroke: #2b3440; stroke-width: 9; stroke-linecap: round; }
+.hat-headphones .cup { fill: #2b3440; }
+body[data-hat="headphones"][data-mood="working"] .hat-headphones .cup { fill: #3a4656; }
+
+#level-chip {
+  position: absolute; bottom: 6%; left: 50%; transform: translateX(-50%);
+  font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em;
+  background: rgba(0,0,0,0.25); border-radius: 99px; padding: 3px 10px; white-space: nowrap; pointer-events: none;
+}
+#level-chip .bar { display: inline-block; width: 36px; height: 4px; border-radius: 2px; background: var(--track); margin-left: 6px; vertical-align: middle; overflow: hidden; }
+#level-chip .bar i { display: block; height: 100%; background: var(--accent); }
+body.blackout #level-chip { display: none; }
+
+.hat-choice { flex-wrap: wrap; }
+.hat-choice button { flex: 1 1 30%; white-space: pre-line; line-height: 1.25; }
+.hat-choice button[disabled] { opacity: 0.4; font-size: 12px; }

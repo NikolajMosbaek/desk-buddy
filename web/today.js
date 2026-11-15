@@ -8,7 +8,12 @@
     en: {
       title: 'Today', prompts: 'prompts', files: 'files', active: 'active', tokens: 'tokens',
       streak: (n) => `${n} day${n === 1 ? '' : 's'} in a row`,
-      tests: (p, f) => (f ? `${p} test runs green, ${f} red` : `${p} test run${p === 1 ? '' : 's'} green`),
+      tests: (p, f) => {
+        const runs = (n) => `${n} test run${n === 1 ? '' : 's'}`;
+        if (!f) return `${runs(p)}, ${p === 1 ? 'green' : 'all green'}`;
+        if (!p) return `${runs(f)}, ${f === 1 ? 'red' : 'all red'}`;
+        return `${runs(p + f)}: ${p} green, ${f} red`;
+      },
       commits: (n) => `${n} commit${n === 1 ? '' : 's'}`,
       pushes: (n) => `${n} push${n === 1 ? '' : 'es'}`,
       sessions: (n) => `${n} session${n === 1 ? '' : 's'}`,
@@ -17,7 +22,14 @@
     da: {
       title: 'I dag', prompts: 'prompts', files: 'filer', active: 'aktiv', tokens: 'tokens',
       streak: (n) => `${n} ${n === 1 ? 'dag' : 'dage'} i træk`,
-      tests: (p, f) => (f ? `${p} testkørsler grønne, ${f} røde` : `${p} ${p === 1 ? 'testkørsel' : 'testkørsler'} grøn${p === 1 ? '' : 'ne'}`),
+      tests: (p, f) => {
+        const runs = (n) => `${n} ${n === 1 ? 'testkørsel' : 'testkørsler'}`;
+        const green = (n) => (n === 1 ? 'grøn' : 'grønne');
+        const red = (n) => (n === 1 ? 'rød' : 'røde');
+        if (!f) return `${runs(p)}, ${p === 1 ? 'grøn' : 'alle grønne'}`;
+        if (!p) return `${runs(f)}, ${f === 1 ? 'rød' : 'alle røde'}`;
+        return `${runs(p + f)}: ${p} ${green(p)}, ${f} ${red(f)}`;
+      },
       commits: (n) => `${n} commit${n === 1 ? '' : 's'}`,
       pushes: (n) => `${n} push`,
       sessions: (n) => `${n} ${n === 1 ? 'session' : 'sessioner'}`,
@@ -65,7 +77,8 @@
     if (!bits.length && d.sessions) bits.push(T.sessions(d.sessions));
     sub.textContent = bits.join(' · ');
     sub.hidden = !bits.length;
-    streakEl.textContent = st.streak > 1 ? T.streak(st.streak) : '';
+    const streak = st.growth?.streak || 0;
+    streakEl.textContent = streak > 1 ? T.streak(streak) : '';
   }
 
   document.addEventListener('buddy:state', (e) => render(e.detail));

@@ -35,7 +35,7 @@ const SCRIPT = [
   [8, []], // a short rest before the loop starts over
 ];
 
-export function startDemo({ state, onChange, applyHook = (ev) => state.applyHook(ev) }) {
+export function startDemo({ state, onChange, applyHook = (ev) => state.applyHook(ev), onLoop = () => {} }) {
   const START = {
     day: Date.now(), input: 180_000, output: 320_000, cacheWrite: 1_400_000, cacheRead: 11_600_000,
     messages: 410, byModel: {},
@@ -75,7 +75,7 @@ export function startDemo({ state, onChange, applyHook = (ev) => state.applyHook
       ctx = Math.min(95, ctx + (u.ctx || 0));
     }
     if (sid && state.sessions.has(sid)) status(sid);
-    if (i === SCRIPT.length - 1) { five = 24; ctx = 9; Object.assign(usage, START); } // keep the loop believable
+    if (i === SCRIPT.length - 1) { five = 24; ctx = 9; Object.assign(usage, START); onLoop(); } // keep the loop believable
     onChange();
     i = (i + 1) % SCRIPT.length;
     timer = setTimeout(step, SCRIPT[i][0] * 1000);

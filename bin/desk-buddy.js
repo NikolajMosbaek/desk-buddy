@@ -109,6 +109,7 @@ try {
       const stop = () => { stats.flush(); server.close(); process.exit(0); };
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
+      process.on('SIGHUP', stop); // terminal closed
       break;
     }
     case 'help':
