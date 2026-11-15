@@ -126,6 +126,7 @@
   function render() {
     if (!state) return;
     const mood = state.mood;
+    $('#demo-badge').classList.toggle('hidden', !state.demo);
     if (mood !== lastMood) {
       body.dataset.mood = mood;
       if (mood === 'done' && lastMood !== null) confetti();

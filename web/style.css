@@ -279,6 +279,11 @@ body.offline #buddy { filter: grayscale(1) brightness(0.6); }
 }
 #conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
 .hidden { display: none !important; }
+#demo-badge {
+  position: fixed; bottom: max(10px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent); border-radius: 99px; padding: 3px 10px; opacity: 0.8;
+}
 
 #wake {
   position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));

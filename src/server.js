@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { BuddyState } from './state.js';
 import { UsageTracker } from './usage.js';
 import { claudeDir } from './config.js';
+import { startDemo } from './demo.js';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const MAX_BODY = 2 * 1024 * 1024;
@@ -66,13 +67,18 @@ export function lanAddresses() {
   return out.sort((x, y) => Number(x.tailscale) - Number(y.tailscale));
 }
 
-export function startServer({ port, token, host = '0.0.0.0', log = console.log }) {
+export function startServer({ port, token, host = '0.0.0.0', log = console.log, demo = false }) {
   const state = new BuddyState();
   const usage = new UsageTracker(path.join(claudeDir(), 'projects'));
   const clients = new Set();
   let pending = null;
 
-  const snapshot = () => ({ ...state.snapshot(), usage: usage.snapshot() });
+  let demoRun = null;
+  const snapshot = () => ({
+    ...state.snapshot(),
+    usage: demoRun ? demoRun.usage() : usage.snapshot(),
+    demo: Boolean(demoRun),
+  });
 
   const broadcast = () => {
     if (pending) return;
@@ -85,8 +91,10 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log }
   };
 
   const refreshUsage = () => {
+    if (demoRun) return;
     try { if (usage.refresh()) broadcast(); } catch (e) { log(`usage: ${e.message}`); }
   };
+  if (demo) demoRun = startDemo({ state, onChange: () => broadcast() });
   refreshUsage();
   const usageTimer = setInterval(refreshUsage, USAGE_REFRESH_MS);
   const tickTimer = setInterval(() => { if (state.tick()) broadcast(); }, 1000);
@@ -200,6 +208,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log }
     clearInterval(usageTimer);
     clearInterval(tickTimer);
     clearInterval(pingTimer);
+    if (demoRun) demoRun.stop();
   });
   return { server, state, usage };
 }

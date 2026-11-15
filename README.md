@@ -43,6 +43,16 @@ The buddy speaks up when the mood changes (always for *needs you*, *done* and *e
 - A phone, tablet or any browser that can reach the computer, on the same Wi-Fi or over [Tailscale](https://tailscale.com)
 - For the limit bars: a claude.ai subscription (Pro, Max). Everything else works on any plan.
 
+## Try it first (demo mode)
+
+Want to see it before touching your Claude Code settings? Demo mode plays a scripted session in a loop: prompts, file edits, a permission request, a subagent, a failing test, done. It needs no Claude Code and changes nothing on your machine.
+
+```sh
+npx github:NikolajMosbaek/desk-buddy demo
+```
+
+Open the printed link on your phone. A small **DEMO** badge shows that the data is made up.
+
 ## Quick start
 
 On the computer where you run Claude Code:
@@ -113,6 +123,7 @@ Run `desk-buddy uninstall` to remove exactly what was added. Your previous statu
 | --- | --- |
 | `desk-buddy install [--no-statusline] [--port N]` | Add hooks and the status line bridge |
 | `desk-buddy` or `desk-buddy start [--port N]` | Run the server |
+| `desk-buddy demo [--port N]` | Run with a scripted demo session instead of Claude Code |
 | `desk-buddy url` | Print the phone link again |
 | `desk-buddy status` | Show what is installed |
 | `desk-buddy new-token` | Make a new access token (open the new link on the phone) |

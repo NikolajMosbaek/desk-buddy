@@ -31,6 +31,7 @@ function help() {
 Usage:
   desk-buddy install [--no-statusline]   Add hooks (and the status line bridge) to ~/.claude/settings.json
   desk-buddy [start] [--port N]          Run the server the phone connects to
+  desk-buddy demo [--port N]             Try it without Claude Code: plays a scripted session in a loop
   desk-buddy url                         Print the phone URL again
   desk-buddy status                      Show what is installed
   desk-buddy uninstall                   Remove everything desk-buddy added to settings.json
@@ -69,17 +70,21 @@ try {
       printUrls(loadConfig());
       break;
     }
+    case 'demo':
     case 'start': {
+      const demo = cmd === 'demo' || flag('demo');
       const cfg = loadConfig();
       const port = opt('port') ? Number(opt('port')) : cfg.port;
-      if (port !== cfg.port) {
+      if (port !== cfg.port && !demo) {
         console.log(`Note: hooks were installed for port ${cfg.port}. Run \`desk-buddy install --port ${port}\` to move them.`);
       }
       const s = installStatus();
-      if (!s.hooks) console.log('Hooks are not installed yet, so the buddy will just sleep. Run `desk-buddy install` first.');
-      const { server } = startServer({ port, token: cfg.token });
+      if (!s.hooks && !demo) console.log('Hooks are not installed yet, so the buddy will just sleep. Run `desk-buddy install` first.');
+      const { server } = startServer({ port, token: cfg.token, demo });
       server.on('listening', () => {
-        console.log(`desk-buddy is running on port ${port}.`);
+        console.log(demo
+          ? `desk-buddy DEMO is running on port ${port}: a scripted session plays in a loop. Claude Code is not needed.`
+          : `desk-buddy is running on port ${port}.`);
         printUrls({ ...cfg, port });
       });
       server.on('error', (e) => {
