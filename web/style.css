@@ -263,6 +263,16 @@ body.offline #buddy { filter: grayscale(1) brightness(0.6); }
 .stat-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .stat-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Today: replaces the token/context tiles while nothing is running. */
+body.show-today #stats { display: none; }
+#today { background: var(--track); border-radius: 14px; padding: 10px 12px; }
+.today-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--muted); font-size: 13px; }
+#today-streak { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.today-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; }
+.today-grid b { display: block; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.today-grid span { color: var(--muted); font-size: 12px; }
+.today-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 #sessions { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 #sessions li {
   display: flex; align-items: center; gap: 6px;

@@ -4,8 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BuddyState } from './state.js';
+import { Stats } from './stats.js';
 import { UsageTracker } from './usage.js';
-import { claudeDir } from './config.js';
+import { claudeDir, buddyDir } from './config.js';
 import { startDemo } from './demo.js';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
@@ -70,16 +71,39 @@ export function lanAddresses() {
   return out.sort((x, y) => x.rank - y.rank);
 }
 
+// Demo mode starts mid-afternoon on a productive day, so the summary has something to show.
+function seedDemoStats(stats) {
+  const now = Date.now();
+  Object.assign(stats._day(now), {
+    prompts: 23, tools: 182, files: 14, sessions: 3, activeMs: (4 * 60 + 12) * 60_000,
+    testsPass: 6, testsFail: 2, commits: 5, pushes: 2, firstAt: now - 6 * 3600_000, lastAt: now,
+  });
+  for (let i = 1; i <= 8; i++) stats._day(now - i * 86_400_000).prompts = 10 + i;
+}
+
 export function startServer({ port, token, host = '0.0.0.0', log = console.log, demo = false }) {
   const state = new BuddyState();
   const usage = new UsageTracker(path.join(claudeDir(), 'projects'));
   const clients = new Set();
   let pending = null;
 
+  const stats = new Stats(demo ? null : path.join(buddyDir(), 'stats.json'), { log });
+  if (demo) seedDemoStats(stats);
+
+  // Every hook goes through here, real or scripted: the mood, then the day's counters.
+  const applyHook = (ev) => {
+    const seq = state.eventSeq;
+    const changed = state.applyHook(ev);
+    stats.record(ev, state.eventSeq !== seq ? state.event.kind : null);
+    return changed;
+  };
+
   let demoRun = null;
   const snapshot = () => ({
     ...state.snapshot(),
     usage: demoRun ? demoRun.usage() : usage.snapshot(),
+    today: stats.today(),
+    streak: stats.streak(),
     demo: Boolean(demoRun),
   });
 
@@ -97,7 +121,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     if (demoRun) return;
     try { if (usage.refresh()) broadcast(); } catch (e) { log(`usage: ${e.message}`); }
   };
-  if (demo) demoRun = startDemo({ state, onChange: () => broadcast() });
+  if (demo) demoRun = startDemo({ state, applyHook, onChange: () => broadcast() });
   refreshUsage();
   const usageTimer = setInterval(refreshUsage, USAGE_REFRESH_MS);
   const tickTimer = setInterval(() => { if (state.tick()) broadcast(); }, 1000);
@@ -133,7 +157,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
       res.end('{}');
       if (!body) return;
       if (process.env.DESK_BUDDY_DEBUG) log(`${p} ${body.hook_event_name || 'status'} ${body.tool_name || body.notification_type || ''}`);
-      const changed = p === '/hook' ? state.applyHook(body) : state.applyStatus(body);
+      const changed = p === '/hook' ? applyHook(body) : state.applyStatus(body);
       if (changed) broadcast();
       if (p === '/hook' && (body.hook_event_name === 'Stop' || body.hook_event_name === 'SessionStart')) {
         setTimeout(refreshUsage, 1500); // transcript is written just after Stop
@@ -212,6 +236,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     clearInterval(tickTimer);
     clearInterval(pingTimer);
     if (demoRun) demoRun.stop();
+    stats.flush();
   });
-  return { server, state, usage };
+  return { server, state, usage, stats };
 }

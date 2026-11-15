@@ -381,6 +381,8 @@
     react,
     pickLine,
     confetti,
+    fmtTokens,
+    fmtDuration,
     reactionsFor: (id) => REACTIONS[id] || REACTIONS.pip,
   };
 

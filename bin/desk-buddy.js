@@ -95,7 +95,7 @@ try {
       }
       const s = installStatus();
       if (!s.hooks && !demo) console.log('Hooks are not installed yet, so the buddy will just sleep. Run `desk-buddy install` first.');
-      const { server } = startServer({ port, token: cfg.token, demo });
+      const { server, stats } = startServer({ port, token: cfg.token, demo });
       server.on('listening', () => {
         console.log(demo
           ? `desk-buddy DEMO is running on port ${port}: a scripted session plays in a loop. Claude Code is not needed.`
@@ -106,7 +106,7 @@ try {
         console.error(e.code === 'EADDRINUSE' ? `Port ${port} is in use. Is desk-buddy already running?` : e.message);
         process.exit(1);
       });
-      const stop = () => { server.close(); process.exit(0); };
+      const stop = () => { stats.flush(); server.close(); process.exit(0); };
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
       break;
