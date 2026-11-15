@@ -56,3 +56,21 @@ test('tool labels', () => {
   assert.deepEqual(describeTool('Bash', { command: 'ls', description: 'List files' }), { verb: 'say', detail: 'List files' });
   assert.deepEqual(describeTool('mcp__github__create_pull_request', {}), { verb: 'tool', detail: 'github · create_pull_request' });
 });
+
+test('demo mode drives the state through its moods', async () => {
+  const { startDemo } = await import('../src/demo.js');
+  const st = new BuddyState();
+  const seen = new Set();
+  const realSetTimeout = global.setTimeout;
+  const queue = [];
+  global.setTimeout = (fn) => { queue.push(fn); return queue.length; };
+  try {
+    const demo = startDemo({ state: st, onChange: () => seen.add(st.overallMood()) });
+    for (let i = 0; i < 40 && queue.length; i++) queue.shift()();
+    demo.stop();
+    assert.ok(demo.usage().total > 0);
+  } finally {
+    global.setTimeout = realSetTimeout;
+  }
+  for (const m of ['idle', 'thinking', 'working', 'waiting', 'done', 'error']) assert.ok(seen.has(m), `missing ${m}`);
+});
