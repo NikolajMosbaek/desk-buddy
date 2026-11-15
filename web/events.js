@@ -6,15 +6,15 @@
   const S = window.Settings;
   const B = window.DeskBuddy;
   const T = S.t({
-    en: { toggle: 'React to tests, commits and pushes', hint: 'Also flinches at rm -rf and force pushes' },
-    da: { toggle: 'Reagér på tests, commits og push', hint: 'Krymper sig også ved rm -rf og force push' },
+    en: { toggle: 'React to tests, commits and pushes', hint: 'Also flinches at risky commands like force push' },
+    da: { toggle: 'Reagér på tests, commits og push', hint: 'Krymper sig også ved risikable kommandoer som force push' },
   });
   S.define('events', true);
 
   // How each kind looks. `sound` is a chime name in sound.js (it respects the sound setting).
   const STYLE = {
     testsPass: { cls: 'react-jump', happy: true, ms: 900, sound: 'pass' },
-    testsFail: { cls: 'react-slump', happy: false, ms: 1500 }, // the error mood already chimes
+    testsFail: { cls: 'react-slump', happy: false, ms: 1500, sound: 'error' },
     commit: { cls: 'react-spin', happy: true, ms: 900 },
     push: { cls: 'react-jump', happy: true, ms: 900, confetti: true, sound: 'pass' },
     scary: { cls: 'react-shock', happy: false, ms: 1300 },
@@ -37,7 +37,8 @@
     if (document.body.dataset.mood === 'waiting' && ev.kind !== 'scary') return;
     B.react(st.cls, B.pickLine(ev.kind), { ms: st.ms, happy: st.happy, sayMs: 3500 });
     if (st.confetti) B.confetti();
-    if (st.sound) window.BuddySound?.play(st.sound);
+    // A failed run usually also flips the mood to error, which already chimes.
+    if (st.sound && !(st.sound === 'error' && document.body.dataset.mood === 'error')) window.BuddySound?.play(st.sound);
   });
 
   S.section('events', () => T.toggle, (el) => {

@@ -73,24 +73,26 @@ export class BuddyState {
     this.eventSeq = 0;
   }
 
-  _event(kind, s, detail = null) {
-    this.event = { seq: ++this.eventSeq, kind, at: Date.now(), session: s.id, project: s.project, detail };
+  _event(kind, s) {
+    this.event = { seq: ++this.eventSeq, kind, at: Date.now(), session: s.id, project: s.project };
   }
 
   // Tests, commits, pushes and scary commands get their own reaction on the phone.
   _bashEvent(name, ev, s) {
     if (ev.tool_name !== 'Bash') return;
-    const cmd = ev.tool_input?.command;
-    const kind = classifyCommand(cmd);
-    if (!kind) return;
-    const detail = shorten(cmd, 48);
+    const input = ev.tool_input || {};
+    const { scary, kind } = classifyCommand(input.command);
     if (name === 'PreToolUse') {
-      if (kind === 'scary') this._event('scary', s, detail);
-    } else if (name === 'PostToolUse') {
-      if (kind === 'test') this._event(testOutputFailed(ev.tool_response) ? 'testsFail' : 'testsPass', s, detail);
-      else if (kind === 'commit' || kind === 'push') this._event(kind, s, detail);
-    } else if (name === 'PostToolUseFailure' && !ev.is_interrupt) {
-      if (kind === 'test') this._event('testsFail', s, detail);
+      if (scary) this._event('scary', s);
+      return;
+    }
+    // A background run reports PostToolUse straight away, long before the tests finish.
+    if (input.run_in_background || ev.tool_response?.backgroundTaskId || /&\s*$/.test(input.command || '')) return;
+    if (name === 'PostToolUse') {
+      if (kind === 'test') this._event(testOutputFailed(ev.tool_response) ? 'testsFail' : 'testsPass', s);
+      else if (kind) this._event(kind, s);
+    } else if (name === 'PostToolUseFailure' && !ev.is_interrupt && kind === 'test') {
+      this._event('testsFail', s);
     }
   }
 
