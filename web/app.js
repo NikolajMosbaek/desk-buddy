@@ -299,7 +299,7 @@
     bolt: ['react-spin', 'react-jump', 'react-jump'],
     grumbles: ['react-huff', 'react-wiggle'],
   };
-  const ALL_REACTIONS = ['react-jump', 'react-squish', 'react-spin', 'react-wiggle', 'react-dizzy', 'react-huff'];
+  const ALL_REACTIONS = ['react-jump', 'react-squish', 'react-spin', 'react-wiggle', 'react-dizzy', 'react-huff', 'react-slump', 'react-shock'];
   let taps = [];
   let reactTimer = null;
   // Play a one-off reaction animation (and optionally a line) without changing the mood.

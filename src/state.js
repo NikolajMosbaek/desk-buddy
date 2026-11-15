@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { classifyCommand, testOutputFailed } from './events.js';
 
 // Moods, most urgent first. The phone shows the most urgent mood across all sessions.
 export const MOOD_PRIORITY = ['waiting', 'error', 'working', 'thinking', 'compacting', 'done', 'idle', 'sleeping'];
@@ -68,6 +69,29 @@ export class BuddyState {
     this.sessions = new Map();
     this.limits = null; // last rate_limits seen via the status line bridge
     this.lastEventAt = 0;
+    this.event = null; // last noteworthy moment (tests, commit, push, scary command) for a one-off reaction
+    this.eventSeq = 0;
+  }
+
+  _event(kind, s, detail = null) {
+    this.event = { seq: ++this.eventSeq, kind, at: Date.now(), session: s.id, project: s.project, detail };
+  }
+
+  // Tests, commits, pushes and scary commands get their own reaction on the phone.
+  _bashEvent(name, ev, s) {
+    if (ev.tool_name !== 'Bash') return;
+    const cmd = ev.tool_input?.command;
+    const kind = classifyCommand(cmd);
+    if (!kind) return;
+    const detail = shorten(cmd, 48);
+    if (name === 'PreToolUse') {
+      if (kind === 'scary') this._event('scary', s, detail);
+    } else if (name === 'PostToolUse') {
+      if (kind === 'test') this._event(testOutputFailed(ev.tool_response) ? 'testsFail' : 'testsPass', s, detail);
+      else if (kind === 'commit' || kind === 'push') this._event(kind, s, detail);
+    } else if (name === 'PostToolUseFailure' && !ev.is_interrupt) {
+      if (kind === 'test') this._event('testsFail', s, detail);
+    }
   }
 
   _session(id, cwd) {
@@ -119,6 +143,7 @@ export class BuddyState {
     s.updatedAt = now;
     // Hooks fired inside a subagent carry agent_id; they keep the parent busy but don't change its label much.
     const inSubagent = Boolean(ev.agent_id);
+    this._bashEvent(name, ev, s);
 
     switch (name) {
       case 'SessionStart':
@@ -299,6 +324,7 @@ export class BuddyState {
       focus: sessions[0] || null,
       sessions,
       limits: this.limits,
+      event: this.event,
       serverTime: Date.now(),
     };
   }
