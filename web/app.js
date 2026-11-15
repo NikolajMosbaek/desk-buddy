@@ -22,6 +22,7 @@
       subagents: (n) => (n === 1 ? '1 subagent' : `${n} subagents`),
       offline: 'Lost connection to the computer',
       keepAwake: 'Keep screen on',
+      pickTitle: 'Choose your buddy', pickDone: 'Done', pickButton: 'Buddy',
     },
     da: {
       mood: {
@@ -43,6 +44,7 @@
       subagents: (n) => (n === 1 ? '1 subagent' : `${n} subagents`),
       offline: 'Mistet forbindelsen til computeren',
       keepAwake: 'Hold skærmen tændt',
+      pickTitle: 'Vælg din buddy', pickDone: 'Færdig', pickButton: 'Buddy',
     },
   };
   const params = new URLSearchParams(location.search);
@@ -127,7 +129,9 @@
     if (mood !== lastMood) {
       body.dataset.mood = mood;
       if (mood === 'done' && lastMood !== null) confetti();
+      if (lastMood !== null) moodLine(mood);
       lastMood = mood;
+      applyTempo();
     }
     $('#mood-title').textContent = T.mood[mood] || mood;
 
@@ -226,6 +230,125 @@
     if (document.visibilityState === 'visible') { connect(); requestWakeLock(); }
   });
   setInterval(render, 30_000); // keep "resets in" countdowns fresh
+
+  // ---------- buddies: look, tempo, personality ----------
+  const BUDDIES = window.BUDDIES || {};
+  const ids = Object.keys(BUDDIES);
+  const storedBuddy = () => { try { return localStorage.getItem('buddy'); } catch { return null; } };
+  let buddyId = [params.get('buddy'), storedBuddy(), 'pip'].find((b) => b && BUDDIES[b]) || ids[0];
+  const buddy = () => BUDDIES[buddyId];
+  const linesFor = (key) => {
+    const l = buddy().lines;
+    return (l[lang] || l.en)[key] || (l.en[key]) || [];
+  };
+  const pickLine = (key) => { const a = linesFor(key); return a[Math.floor(Math.random() * a.length)] || ''; };
+
+  function applyTempo() {
+    // Each buddy moves at its own pace: scale every running CSS animation on the character.
+    requestAnimationFrame(() => {
+      const rate = buddy().speed || 1;
+      for (const a of document.getAnimations()) {
+        const el = a.effect && a.effect.target;
+        if (el && el.closest && el.closest('#buddy')) a.playbackRate = rate;
+      }
+    });
+  }
+
+  function setBuddy(id, { announce = false } = {}) {
+    if (!BUDDIES[id]) return;
+    buddyId = id;
+    body.dataset.buddy = id;
+    try { localStorage.setItem('buddy', id); } catch { /* private mode */ }
+    params.set('buddy', id);
+    history.replaceState(null, '', `${location.pathname}?${params}`);
+    applyTempo();
+    if (announce) say(pickLine('tap'));
+  }
+
+  const bubble = $('#bubble');
+  let bubbleTimer = null;
+  function say(text, ms = 3200) {
+    if (!text) return;
+    bubble.textContent = text;
+    bubble.classList.add('show');
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms);
+  }
+
+  // Speak on mood changes, but don't chatter: routine moods at most every 12s.
+  let lastSpoke = 0;
+  function moodLine(mood) {
+    const important = mood === 'waiting' || mood === 'done' || mood === 'error';
+    if (!important && Date.now() - lastSpoke < 12_000) return;
+    lastSpoke = Date.now();
+    say(pickLine(mood), important ? 4500 : 3000);
+  }
+
+  // Tap the buddy: it reacts in character. Tap a lot and it gets dizzy.
+  const REACTIONS = {
+    pip: ['react-jump', 'react-wiggle', 'react-spin'],
+    mochi: ['react-squish', 'react-squish', 'react-wiggle'],
+    bolt: ['react-spin', 'react-jump', 'react-jump'],
+    grumbles: ['react-huff', 'react-wiggle'],
+  };
+  const ALL_REACTIONS = ['react-jump', 'react-squish', 'react-spin', 'react-wiggle', 'react-dizzy', 'react-huff'];
+  let taps = [];
+  let reactTimer = null;
+  function poke() {
+    const now = Date.now();
+    taps = taps.filter((t) => now - t < 2500);
+    taps.push(now);
+    const dizzy = taps.length >= 5;
+    const list = REACTIONS[buddyId] || REACTIONS.pip;
+    const cls = dizzy ? 'react-dizzy' : list[Math.floor(Math.random() * list.length)];
+    body.classList.remove(...ALL_REACTIONS, 'tapped');
+    void body.offsetWidth; // restart the animation if the same class comes twice
+    body.classList.add(cls, 'tapped');
+    applyTempo();
+    say(pickLine(dizzy ? 'dizzy' : 'tap'), 2200);
+    if (dizzy) taps = [];
+    clearTimeout(reactTimer);
+    reactTimer = setTimeout(() => body.classList.remove(...ALL_REACTIONS, 'tapped'), dizzy ? 1300 : 800);
+  }
+  $('#buddy').addEventListener('click', poke);
+
+  // Picker
+  const picker = $('#picker');
+  $('#pick').textContent = T.pickButton;
+  $('#picker-title').textContent = T.pickTitle;
+  $('#picker-done').textContent = T.pickDone;
+  function renderPicker() {
+    const list = $('#picker-list');
+    list.textContent = '';
+    for (const id of ids) {
+      const b = BUDDIES[id];
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'pick-card' + (id === buddyId ? ' selected' : '');
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.dataset.buddy = id;
+      const txt = document.createElement('span');
+      const name = document.createElement('b');
+      name.textContent = b.name;
+      const tag = document.createElement('span');
+      tag.className = 't';
+      tag.textContent = b.tagline[lang] || b.tagline.en;
+      txt.append(name, tag);
+      card.append(sw, txt);
+      card.addEventListener('click', (e) => { e.stopPropagation(); setBuddy(id, { announce: true }); renderPicker(); });
+      list.appendChild(card);
+    }
+  }
+  const SWATCH = { pip: '#3fb8a3', mochi: '#f2a7bd', bolt: '#f5c242', grumbles: '#8c7bd6' };
+  const swatchStyle = document.createElement('style');
+  swatchStyle.textContent = Object.entries(SWATCH).map(([k, v]) => `.swatch[data-buddy="${k}"]{background:${v}}`).join('');
+  document.head.appendChild(swatchStyle);
+  $('#pick').addEventListener('click', (e) => { e.stopPropagation(); renderPicker(); picker.classList.remove('hidden'); });
+  $('#picker-done').addEventListener('click', (e) => { e.stopPropagation(); picker.classList.add('hidden'); });
+  picker.addEventListener('click', (e) => { if (e.target === picker) picker.classList.add('hidden'); });
+
+  setBuddy(buddyId);
 
   // ---------- keep the screen on ----------
   let lock = null;

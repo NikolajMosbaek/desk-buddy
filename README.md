@@ -19,7 +19,22 @@ It is a small web app served from your own computer. No account, no cloud servic
 - **Tokens today** and **context window** use.
 - **Several sessions at once**: the most urgent session decides the mood, and the rest are listed as chips.
 - Works as a full-screen home-screen app on iPhone, keeps the screen awake, and is gentle on OLED screens.
+- **Four buddies with their own personalities.** Pick one with the *Buddy* button in the corner. Each has its own look, pace and lines.
+- **Tap the buddy** and it reacts in character. Tap it a lot and it gets dizzy.
 - English and Danish UI, picked from the phone's language.
+
+## Meet the buddies
+
+![The four buddies](docs/buddies.png)
+
+| Buddy | Personality | On a permission prompt |
+| --- | --- | --- |
+| **Pip** | Cheerful little helper | "Psst! I need you." |
+| **Mochi** | Soft, sleepy and cozy. Moves slowly. | "Um… could you come here?" |
+| **Bolt** | Way too much energy. Moves fast. | "HEY! Need a yes from you!" |
+| **Grumbles** | Grumpy, but gets it done | "Your permission. Today, please." |
+
+The buddy speaks up when the mood changes (always for *needs you*, *done* and *error*, at most every 12 seconds otherwise) and when you tap it. Your choice is remembered on the phone. You can also pick one in the link with `&buddy=mochi`.
 
 ## Requirements
 
@@ -151,7 +166,7 @@ To try moods without Claude Code, post events by hand:
 curl -X POST localhost:4317/hook -d '{"session_id":"x","cwd":"/tmp/demo","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm -rf build"}}'
 ```
 
-Pull requests are welcome, especially new characters and moods.
+Pull requests are welcome, especially new buddies. A buddy is an entry in `web/buddies.js` (name, tempo, lines per mood in each language) plus a colour and feature block in `web/style.css`.
 
 ## Disclaimer
 
