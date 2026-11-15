@@ -72,6 +72,7 @@ function alignmentPositions(ver) {
 }
 
 export function encodeQR(text, ecl = 'M') {
+  if (!ECC[ecl]) throw new Error(`Unsupported error correction level: ${ecl} (use L or M)`);
   const bytes = Array.from(Buffer.from(String(text), 'utf8'));
 
   // Pick the smallest version that fits.
@@ -245,7 +246,9 @@ export function encodeQR(text, ecl = 'M') {
 
 // Render with half-block characters: two matrix rows per terminal line, with a quiet zone.
 // Colours are forced (black on white) so it scans on both dark and light terminal themes.
-export function renderQR(text, { margin = 2, color = true } = {}) {
+export const qrWidth = (text, margin = 4) => encodeQR(text, 'L').length + margin * 2;
+
+export function renderQR(text, { margin = 4, color = true } = {}) {
   const m = encodeQR(text, 'L');
   const size = m.length;
   const dark = (x, y) => x >= 0 && y >= 0 && x < size && y < size && m[y][x];
@@ -257,7 +260,8 @@ export function renderQR(text, { margin = 2, color = true } = {}) {
       const bottom = dark(x, y + 1);
       line += top && bottom ? '\u2588' : top ? '\u2580' : bottom ? '\u2584' : ' ';
     }
-    lines.push(color ? `\x1b[30;107m${line}\x1b[0m` : line);
+    // Fixed 256-colour black on white: independent of the terminal theme's palette.
+    lines.push(color ? `\x1b[38;5;16;48;5;231m${line}\x1b[0m` : line);
   }
   return lines.join('\n');
 }

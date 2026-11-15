@@ -31,3 +31,20 @@ test('terminal rendering packs two rows per line', () => {
   assert.equal(lines.length, Math.ceil((21 + 4) / 2));
   assert.equal(lines[0].length, 21 + 4);
 });
+
+test('capacity boundaries pick the next version, and limits are enforced', () => {
+  // Version 1-L holds 17 bytes, version 2-L 32 bytes.
+  assert.equal(encodeQR('a'.repeat(17), 'L').length, 21);
+  assert.equal(encodeQR('a'.repeat(18), 'L').length, 25);
+  assert.equal(encodeQR('a'.repeat(32), 'L').length, 25);
+  assert.equal(encodeQR('a'.repeat(33), 'L').length, 29);
+  assert.equal(encodeQR('a'.repeat(2953), 'L').length, 177); // version 40
+  assert.throws(() => encodeQR('a'.repeat(2954), 'L'), /too long/);
+  assert.throws(() => encodeQR('a', 'Q'), /Unsupported/);
+});
+
+test('non-ASCII text is encoded as UTF-8 bytes', () => {
+  // 'æøå' is 6 bytes in UTF-8; 3 copies (18 bytes) no longer fit version 1-L.
+  assert.equal(encodeQR('æøå'.repeat(2), 'L').length, 21);
+  assert.equal(encodeQR('æøå'.repeat(3), 'L').length, 25);
+});

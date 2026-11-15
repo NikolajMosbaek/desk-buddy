@@ -54,17 +54,20 @@ function parseCookies(req) {
   return out;
 }
 
+// Interfaces a phone can't reach (containers, VMs) go last; Tailscale just before them.
+const VIRTUAL_IF = /docker|veth|^br-|vbox|vmnet|vEthernet|bridge|utun|awdl|llw/i;
+
 export function lanAddresses() {
   const out = [];
   for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const a of list || []) {
       if (a.family !== 'IPv4' || a.internal) continue;
-      const tailscale = a.address.startsWith('100.') || /tailscale|utun/i.test(name);
-      out.push({ name, address: a.address, tailscale });
+      const tailscale = a.address.startsWith('100.') || /tailscale/i.test(name);
+      const virtual = !tailscale && (VIRTUAL_IF.test(name) || a.address.startsWith('172.17.'));
+      out.push({ name, address: a.address, tailscale, rank: tailscale ? 1 : virtual ? 2 : 0 });
     }
   }
-  // Prefer ordinary LAN addresses first; Tailscale is a nice fallback.
-  return out.sort((x, y) => Number(x.tailscale) - Number(y.tailscale));
+  return out.sort((x, y) => x.rank - y.rank);
 }
 
 export function startServer({ port, token, host = '0.0.0.0', log = console.log, demo = false }) {
