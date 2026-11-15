@@ -22,7 +22,7 @@
       subagents: (n) => (n === 1 ? '1 subagent' : `${n} subagents`),
       offline: 'Lost connection to the computer',
       keepAwake: 'Keep screen on',
-      pickTitle: 'Choose your buddy', pickDone: 'Done', pickButton: 'Buddy',
+      pickTitle: 'Settings', pickBuddy: 'Buddy', pickDone: 'Done', pickButton: 'Settings',
     },
     da: {
       mood: {
@@ -44,7 +44,7 @@
       subagents: (n) => (n === 1 ? '1 subagent' : `${n} subagents`),
       offline: 'Mistet forbindelsen til computeren',
       keepAwake: 'Hold skærmen tændt',
-      pickTitle: 'Vælg din buddy', pickDone: 'Færdig', pickButton: 'Buddy',
+      pickTitle: 'Indstillinger', pickBuddy: 'Buddy', pickDone: 'Færdig', pickButton: 'Indstillinger',
     },
   };
   const params = new URLSearchParams(location.search);
@@ -123,6 +123,9 @@
     return true;
   }
 
+  // Feature modules (night.js, sound.js, …) listen for these instead of reaching into this file.
+  function emit(name, detail) { document.dispatchEvent(new CustomEvent(name, { detail })); }
+
   function render() {
     if (!state) return;
     const mood = state.mood;
@@ -131,6 +134,7 @@
       body.dataset.mood = mood;
       if (mood === 'done' && lastMood !== null) confetti();
       if (lastMood !== null) moodLine(mood);
+      emit('buddy:mood', { mood, prev: lastMood });
       lastMood = mood;
       applyTempo();
     }
@@ -295,6 +299,18 @@
   const ALL_REACTIONS = ['react-jump', 'react-squish', 'react-spin', 'react-wiggle', 'react-dizzy', 'react-huff'];
   let taps = [];
   let reactTimer = null;
+  // Play a one-off reaction animation (and optionally a line) without changing the mood.
+  function react(cls, line, { ms = 800, happy = true, sayMs = 2200 } = {}) {
+    body.classList.remove(...ALL_REACTIONS, 'tapped');
+    void body.offsetWidth; // restart the animation if the same class comes twice
+    body.classList.add(cls);
+    if (happy) body.classList.add('tapped');
+    applyTempo();
+    if (line) say(line, sayMs);
+    clearTimeout(reactTimer);
+    reactTimer = setTimeout(() => body.classList.remove(...ALL_REACTIONS, 'tapped'), ms);
+  }
+
   function poke() {
     const now = Date.now();
     taps = taps.filter((t) => now - t < 2500);
@@ -302,14 +318,9 @@
     const dizzy = taps.length >= 5;
     const list = REACTIONS[buddyId] || REACTIONS.pip;
     const cls = dizzy ? 'react-dizzy' : list[Math.floor(Math.random() * list.length)];
-    body.classList.remove(...ALL_REACTIONS, 'tapped');
-    void body.offsetWidth; // restart the animation if the same class comes twice
-    body.classList.add(cls, 'tapped');
-    applyTempo();
-    say(pickLine(dizzy ? 'dizzy' : 'tap'), 2200);
+    react(cls, pickLine(dizzy ? 'dizzy' : 'tap'), { ms: dizzy ? 1300 : 800 });
     if (dizzy) taps = [];
-    clearTimeout(reactTimer);
-    reactTimer = setTimeout(() => body.classList.remove(...ALL_REACTIONS, 'tapped'), dizzy ? 1300 : 800);
+    emit('buddy:tap', { dizzy });
   }
   $('#buddy').addEventListener('click', poke);
 
@@ -317,6 +328,7 @@
   const picker = $('#picker');
   $('#pick').textContent = T.pickButton;
   $('#picker-title').textContent = T.pickTitle;
+  $('#picker-buddy-title').textContent = T.pickBuddy;
   $('#picker-done').textContent = T.pickDone;
   function renderPicker() {
     const list = $('#picker-list');
@@ -345,11 +357,29 @@
   const swatchStyle = document.createElement('style');
   swatchStyle.textContent = Object.entries(SWATCH).map(([k, v]) => `.swatch[data-buddy="${k}"]{background:${v}}`).join('');
   document.head.appendChild(swatchStyle);
-  $('#pick').addEventListener('click', (e) => { e.stopPropagation(); renderPicker(); picker.classList.remove('hidden'); });
-  $('#picker-done').addEventListener('click', (e) => { e.stopPropagation(); picker.classList.add('hidden'); });
-  picker.addEventListener('click', (e) => { if (e.target === picker) picker.classList.add('hidden'); });
+  $('#pick').addEventListener('click', (e) => {
+    e.stopPropagation();
+    renderPicker();
+    emit('buddy:settings-open');
+    picker.classList.remove('hidden');
+  });
+  const closePicker = () => { picker.classList.add('hidden'); emit('buddy:settings-close'); };
+  $('#picker-done').addEventListener('click', (e) => { e.stopPropagation(); closePicker(); });
+  picker.addEventListener('click', (e) => { if (e.target === picker) closePicker(); });
 
   setBuddy(buddyId);
+
+  // Small API for the feature modules loaded after this file.
+  window.DeskBuddy = {
+    lang,
+    get state() { return state; },
+    get buddyId() { return buddyId; },
+    say,
+    react,
+    pickLine,
+    confetti,
+    reactionsFor: (id) => REACTIONS[id] || REACTIONS.pip,
+  };
 
   // ---------- keep the screen on ----------
   let lock = null;

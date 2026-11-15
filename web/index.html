@@ -150,16 +150,21 @@
   <div id="demo-badge" class="hidden">DEMO</div>
   <div id="conn" class="hidden"><span class="dot"></span><span id="conn-text"></span></div>
   <button id="wake" class="hidden" type="button"></button>
-  <button id="pick" type="button" aria-label="Choose buddy"></button>
+  <div id="night" class="hidden"><span id="night-clock"></span></div>
+  <button id="pick" type="button" aria-label="Settings"></button>
   <div id="picker" class="hidden" role="dialog">
     <div class="sheet">
       <h2 id="picker-title"></h2>
+      <h3 id="picker-buddy-title"></h3>
       <div id="picker-list"></div>
+      <div id="settings-sections"></div>
       <button id="picker-done" type="button"></button>
     </div>
   </div>
 
   <script src="/static/buddies.js"></script>
+  <script src="/static/settings.js"></script>
   <script src="/static/app.js"></script>
+  <script src="/static/night.js"></script>
 </body>
 </html>
