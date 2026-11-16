@@ -30,6 +30,10 @@ It is a small web app served from your own computer. No account, no cloud servic
 - **A QR code in the terminal**, so the phone just scans the link.
 - English and Danish UI, picked from the phone's language.
 
+| Today, while Claude rests | Approve from the phone |
+| --- | --- |
+| ![Today summary](docs/today.png) | ![Approve from the phone](docs/approve.png) |
+
 ## Meet the buddies
 
 ![The four buddies](docs/buddies.png)
@@ -127,6 +131,8 @@ Tests are recognised for the usual runners (`npm test`, `pnpm test`, `vitest`, `
 ### Levels and hats
 
 Experience comes from what you do: 1 per prompt, 2 per passing test run, 3 per commit, 5 per push and 10 per day you use Claude Code. Level *n* needs 25·(n−1)² experience, so the first levels come within days and later ones take weeks.
+
+![Every buddy in every hat](docs/hats.png)
 
 | Hat | Earned at |
 | --- | --- |
