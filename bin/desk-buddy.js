@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { loadConfig, saveConfig, configPath } from '../src/config.js';
 import { startServer, lanAddresses } from '../src/server.js';
-import { install, uninstall, installStatus } from '../src/install.js';
+import { install, uninstall, installStatus, updatePermissionHook } from '../src/install.js';
+import { newApprovalKey, waitSeconds, DEFAULT_WAIT } from '../src/approvals.js';
+import { renderQR, qrWidth } from '../src/qr.js';
 
 const args = process.argv.slice(2);
 const cmd = args.includes('--help') || args.includes('-h') ? 'help' : (args[0] && !args[0].startsWith('-') ? args[0] : 'start');
@@ -21,8 +23,20 @@ function printUrls(cfg) {
   console.log('\nOpen one of these on your phone (same Wi-Fi, or Tailscale):');
   if (!u.list.length) console.log('  (no network interfaces found)');
   for (const a of u.list) console.log(`  ${a.url}${a.tailscale ? '   (Tailscale)' : `   (${a.name})`}`);
+  // A QR code for the first (preferred) address: point the phone's camera at it.
+  const qrHost = opt('qr-host');
+  const target = qrHost ? { address: qrHost, url: `http://${qrHost}:${cfg.port}/?t=${cfg.token}` } : u.list[0];
+  if (target && process.stdout.isTTY && !flag('no-qr')) {
+    const cols = process.stdout.columns;
+    if (cols && cols < qrWidth(target.url)) {
+      console.log(`\n(Widen the terminal to ${qrWidth(target.url)} columns to see a QR code.)`);
+    } else {
+      console.log(`\nScan with the phone's camera (${target.address}):\n`);
+      console.log(renderQR(target.url));
+    }
+  }
   console.log(`\nOn this computer: ${u.local}`);
-  console.log('Tip: on a Mac, AirDrop the link to the phone, then Share > Add to Home Screen.\n');
+  console.log('Then on the phone: Share > Add to Home Screen.\n');
 }
 
 function help() {
@@ -36,6 +50,10 @@ Usage:
   desk-buddy status                      Show what is installed
   desk-buddy uninstall                   Remove everything desk-buddy added to settings.json
   desk-buddy new-token                   Rotate the access token (re-open the link on the phone)
+  desk-buddy approvals on [--wait 60]    Answer permission questions from the phone (opt-in)
+  desk-buddy approvals off|new-key       Turn it off again, or make a new approval key
+
+Add --no-qr to skip the QR code, or --qr-host <ip> to put another address in it.
 `);
 }
 
@@ -57,7 +75,44 @@ try {
       console.log(`settings:   ${s.settingsFile}`);
       console.log(`hooks:      ${s.hooks}/${s.hooksExpected}`);
       console.log(`statusline: ${s.statusline ? 'bridge installed' : 'not installed (no live 5h/7d limits)'}`);
+      const ap = loadConfig({ create: false }).approvals;
+      console.log(`approvals:  ${ap?.enabled ? `on (waits ${waitSeconds(ap.waitSec)} s for the phone)` : 'off'}`);
       console.log(`config:     ${configPath()}`);
+      break;
+    }
+    case 'approvals': {
+      const sub = args[1] || 'status';
+      const c = loadConfig();
+      const a = { enabled: false, waitSec: DEFAULT_WAIT, ...(c.approvals || {}) };
+      if (sub === 'on') {
+        a.enabled = true;
+        if (!a.key) a.key = newApprovalKey();
+        if (opt('wait')) a.waitSec = waitSeconds(opt('wait'));
+      } else if (sub === 'off') {
+        a.enabled = false;
+      } else if (sub === 'new-key') {
+        a.key = newApprovalKey();
+      } else if (sub !== 'status') {
+        throw new Error('Usage: desk-buddy approvals on [--wait N] | off | new-key | status');
+      }
+      if (sub !== 'status') { c.approvals = a; saveConfig(c); }
+      if (sub === 'on' || sub === 'off') {
+        if (!updatePermissionHook()) console.log('Hooks are not installed yet. Run `desk-buddy install`.');
+        else console.log('Restart running Claude Code sessions so they pick it up.');
+      }
+      console.log(`\nApprove from the phone: ${a.enabled ? 'ON' : 'off'}`);
+      if (a.enabled) {
+        console.log(`While a phone with the key is watching, a permission question waits up to ${waitSeconds(a.waitSec)} s`);
+        console.log('for it. Depending on your Claude Code version, the terminal prompt may only appear');
+        console.log('after that, so keep the wait short (--wait N).');
+      }
+      if (sub === 'on' || sub === 'new-key') {
+        console.log(`\nType this key on the phone (Settings > Approve from phone):\n\n    ${a.key}\n`);
+        console.log('The key signs every answer, so the page link alone cannot approve anything, even');
+        console.log('if someone on your network sees it. The page is still plain HTTP: they can see the');
+        console.log('commands Claude asks about, and someone who can tamper with your network traffic');
+        console.log('could change the page itself. Use a network you trust, ideally Tailscale.');
+      }
       break;
     }
     case 'url':
@@ -80,7 +135,7 @@ try {
       }
       const s = installStatus();
       if (!s.hooks && !demo) console.log('Hooks are not installed yet, so the buddy will just sleep. Run `desk-buddy install` first.');
-      const { server } = startServer({ port, token: cfg.token, demo });
+      const { server, stats, approvals } = startServer({ port, token: cfg.token, demo });
       server.on('listening', () => {
         console.log(demo
           ? `desk-buddy DEMO is running on port ${port}: a scripted session plays in a loop. Claude Code is not needed.`
@@ -91,9 +146,10 @@ try {
         console.error(e.code === 'EADDRINUSE' ? `Port ${port} is in use. Is desk-buddy already running?` : e.message);
         process.exit(1);
       });
-      const stop = () => { server.close(); process.exit(0); };
+      const stop = () => { stats.flush(); approvals.close(); server.close(); process.exit(0); };
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
+      process.on('SIGHUP', stop); // terminal closed
       break;
     }
     case 'help':

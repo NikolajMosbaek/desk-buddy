@@ -26,7 +26,7 @@ function forward(raw) {
   return new Promise((resolve) => {
     const req = http.request({
       host: '127.0.0.1', port, path: '/status', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': raw.length },
+      headers: { 'Content-Type': 'application/json', 'Content-Length': raw.length, 'X-Desk-Buddy': '1' },
       timeout: 400,
     }, (res) => { res.resume(); res.on('end', resolve); });
     req.on('timeout', () => { req.destroy(); resolve(); });

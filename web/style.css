@@ -263,6 +263,16 @@ body.offline #buddy { filter: grayscale(1) brightness(0.6); }
 .stat-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .stat-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Today: replaces the token/context tiles while nothing is running. */
+body.show-today #stats { display: none; }
+#today { background: var(--track); border-radius: 14px; padding: 10px 12px; }
+.today-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--muted); font-size: 13px; }
+#today-streak { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.today-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; }
+.today-grid b { display: block; white-space: nowrap; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.today-grid span { color: var(--muted); font-size: 12px; }
+.today-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 #sessions { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 #sessions li {
   display: flex; align-items: center; gap: 6px;
@@ -298,6 +308,9 @@ body.offline #buddy { filter: grayscale(1) brightness(0.6); }
   #info { gap: 10px; }
   .meter + .meter { margin-top: 6px; }
   .stat-value { font-size: 20px; }
+  #today { padding: 8px 10px; }
+  .today-grid { margin: 4px 0 2px; }
+  .today-grid b { font-size: 18px; }
   #buddy { max-height: 88vh; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -363,6 +376,17 @@ body.react-dizzy .eye .x { display: block !important; }
 @keyframes r-dizzy  { 0%, 100% { transform: rotate(0) translateX(0); } 25% { transform: rotate(-12deg) translateX(-8px); } 50% { transform: rotate(10deg) translateX(8px); } 75% { transform: rotate(-6deg) translateX(-4px); } }
 @keyframes r-huff   { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.06, 0.96) translateY(3px); } }
 
+/* ---------- event reactions (tests, commit, push, scary commands) ---------- */
+body.react-slump .react { animation: r-slump 1.4s ease; }
+body.react-shock .react { animation: r-shock 0.8s linear; }
+body.react-slump .mouth, body.react-shock .mouth { display: none !important; }
+body.react-slump .m-wobble { display: block !important; }
+body.react-shock .m-o { display: block !important; }
+body.react-shock .sweat { display: block; animation: drip 1.2s ease-in; }
+body.react-shock .eye .sclera { transform: scale(1.12); transform-box: fill-box; transform-origin: center; }
+@keyframes r-slump { 0%, 100% { transform: translateY(0) scale(1); } 30%, 75% { transform: translateY(8px) scale(1.04, 0.94); } }
+@keyframes r-shock { 0%, 100% { transform: translate(0, 0); } 10% { transform: translate(0, -14px); } 20%, 60% { transform: translate(-4px, -6px); } 30%, 70% { transform: translate(4px, -6px); } 40%, 80% { transform: translate(-3px, -3px); } 50%, 90% { transform: translate(3px, -2px); } }
+
 /* ---------- speech bubble ---------- */
 #bubble {
   position: absolute; top: 4%; left: 50%;
@@ -401,3 +425,97 @@ body.react-dizzy .eye .x { display: block !important; }
 #picker-done { margin-top: 14px; width: 100%; font: inherit; font-weight: 700; padding: 12px; border: 0; border-radius: 14px; background: var(--accent); color: #062b25; }
 body.tapped.react-dizzy .m-grin { display: none !important; }
 body.tapped.react-dizzy .m-wobble { display: block !important; }
+
+/* ---------- settings sheet ---------- */
+#picker h3, .settings-section h3 { margin: 16px 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+#picker h2 + h3 { margin-top: 4px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--track); border-radius: 12px; margin-top: 8px; font-size: 15px; }
+.set-row small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.set-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.set-row select { font: inherit; font-size: 16px; /* below 16px iOS zooms on focus */ color: var(--fg); background: #0f1317; border: 1px solid #2c343d; border-radius: 8px; padding: 4px 8px; }
+.set-choice { display: flex; gap: 6px; background: var(--track); border-radius: 12px; padding: 4px; }
+.set-choice button { flex: 1; font: inherit; font-size: 14px; color: var(--muted); background: transparent; border: 0; border-radius: 9px; padding: 8px 6px; }
+.set-choice button.on { background: #2a333c; color: var(--fg); font-weight: 700; }
+.settings-section .note { margin-top: 8px; }
+
+/* ---------- night mode ---------- */
+#night { position: fixed; inset: 0; background: #000; z-index: 20; border: 0; padding: 0; margin: 0; width: 100%; font: inherit; }
+#night-clock { position: absolute; transform: translate(-50%, -50%); color: #2b2f33; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; transition: left 2s, top 2s; }
+body.blackout #pick, body.blackout #wake, body.blackout #demo-badge { visibility: hidden; }
+/* Stop painting the buddy under the black overlay: saves the power night mode is for. */
+body.blackout #stage, body.blackout #glow { display: none; }
+
+/* ---------- sound ---------- */
+#sound-unlock {
+  position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right));
+  font: inherit; font-size: 13px; color: var(--fg); background: var(--track);
+  border: 1px solid #2c343d; border-radius: 99px; padding: 8px 14px;
+}
+.set-button { margin-top: 8px; width: 100%; font: inherit; font-size: 14px; color: var(--fg); background: var(--track); border: 1px solid #2c343d; border-radius: 12px; padding: 10px; }
+body.blackout #sound-unlock { visibility: hidden; }
+
+/* ---------- hats and level ---------- */
+.hat { display: none; }
+body[data-hat="party"] .hat-party,
+body[data-hat="beanie"] .hat-beanie,
+body[data-hat="crown"] .hat-crown,
+body[data-hat="headphones"] .hat-headphones { display: block; }
+/* A hat replaces whatever sticks out of the head. */
+body[data-hat] .antenna,
+body[data-hat="party"] .feat-spikes, body[data-hat="beanie"] .feat-spikes, body[data-hat="crown"] .feat-spikes { display: none !important; }
+/* Sit on each buddy's head: Mochi's is lower and wider. */
+body[data-buddy="mochi"] .hats { transform: translate(0, 12px) scale(1.1, 1); }
+body[data-buddy="bolt"] .hats, body[data-buddy="grumbles"] .hats { transform: translate(0, 4px); }
+.hat-party .cone { fill: #ff7aa8; }
+.hat-party .stripe { fill: none; stroke: #ffe27a; stroke-width: 5; stroke-linecap: round; }
+.hat-party .pom, .hat-beanie .pom { fill: #fff3c4; }
+.hat-beanie .knit { fill: #5b8def; }
+.hat-beanie .rim { fill: #3f6fd1; }
+.hat-crown .gold { fill: #ffc940; stroke: #d99a00; stroke-width: 2; stroke-linejoin: round; }
+.hat-crown .gem { fill: #ff5d73; }
+.hat-crown .gem-s { fill: #5fd4bf; }
+.hat-headphones .band { fill: none; stroke: #2b3440; stroke-width: 9; stroke-linecap: round; }
+.hat-headphones .cup { fill: #2b3440; }
+body[data-hat="headphones"][data-mood="working"] .hat-headphones .cup { fill: #3a4656; }
+
+#level-chip {
+  position: absolute; bottom: 6%; left: 50%; transform: translateX(-50%);
+  font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.04em;
+  background: rgba(0,0,0,0.25); border-radius: 99px; padding: 3px 10px; white-space: nowrap; pointer-events: none;
+}
+#level-chip .bar { display: inline-block; width: 36px; height: 4px; border-radius: 2px; background: var(--track); margin-left: 6px; vertical-align: middle; overflow: hidden; }
+#level-chip .bar i { display: block; height: 100%; background: var(--accent); }
+body.blackout #level-chip { display: none; }
+
+.hat-choice { flex-wrap: wrap; }
+.hat-choice button { flex: 1 1 30%; white-space: pre-line; line-height: 1.25; }
+.hat-choice button[disabled] { opacity: 0.4; font-size: 12px; }
+
+/* ---------- approve from phone ---------- */
+#approval {
+  position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  width: min(560px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; z-index: 9; /* under the settings sheet */
+  background: #151a20; border: 2px solid var(--warn, #ffb547); border-radius: 20px; padding: 14px 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+#approval.hidden { display: none; }
+.ap-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-weight: 800; font-size: 18px; }
+.ap-project { color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-summary { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.ap-detail {
+  margin: 8px 0 0; padding: 8px 10px; background: #0b0d10; border-radius: 10px; color: var(--fg);
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-height: 30vh; overflow: auto;
+}
+.ap-msg { color: #ffb547; font-size: 13px; margin-top: 8px; }
+.ap-msg:empty { display: none; }
+.ap-buttons[hidden], .ap-summary[hidden] { display: none; }
+.ap-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.ap-buttons button { font: inherit; font-size: 17px; font-weight: 800; padding: 14px; border: 0; border-radius: 14px; touch-action: manipulation; }
+.ap-allow { background: var(--accent); color: #062b25; }
+.ap-deny { background: #2a333c; color: var(--fg); }
+.ap-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+.set-key input { flex: 1; min-width: 0; font: 16px ui-monospace, Menlo, monospace; text-transform: uppercase; background: #0b0d10; color: var(--fg); border: 1px solid #2c343d; border-radius: 10px; padding: 8px 10px; }
+.set-key input[hidden] { display: none; }
+.set-key .set-button { margin: 0; flex: none; width: auto; padding: 8px 14px; }
+#approval.ap-arming .ap-buttons button, #approval.ap-busy .ap-buttons button { opacity: 0.4; pointer-events: none; }
+#approval .ap-buttons button { transition: opacity 0.3s ease; }

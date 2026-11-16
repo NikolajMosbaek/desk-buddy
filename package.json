@@ -1,6 +1,6 @@
 {
   "name": "desk-buddy",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "A little desk companion for Claude Code. Shows an animated buddy that reacts to what Claude Code is doing, plus your subscription usage, on an old phone or tablet.",
   "license": "MIT",
   "type": "module",

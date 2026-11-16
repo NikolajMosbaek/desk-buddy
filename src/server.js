@@ -4,9 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BuddyState } from './state.js';
+import { Stats, dayKey } from './stats.js';
+import { growth } from './growth.js';
 import { UsageTracker } from './usage.js';
-import { claudeDir } from './config.js';
 import { startDemo } from './demo.js';
+import { Approvals } from './approvals.js';
+import { claudeDir, buddyDir, loadConfig } from './config.js';
 
 const WEB_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const MAX_BODY = 2 * 1024 * 1024;
@@ -25,6 +28,19 @@ const MIME = {
 function isLoopback(req) {
   const a = req.socket.remoteAddress || '';
   return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
+}
+
+// Hooks come from Claude Code and the status line bridge, never from a browser. A web
+// page open on this computer could otherwise POST fake events to 127.0.0.1 (no
+// preflight for a simple POST), or reach it through DNS rebinding.
+function fromLocalTool(req, p) {
+  const h = req.headers;
+  // Browsers send Origin on every cross-site POST. (Not Sec-Fetch-*: Node's own fetch sends those.)
+  if (h.origin) return false;
+  if (!/^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(h.host || '')) return false;
+  // Our hooks send this header (install sets it); a browser can't without a preflight we never answer.
+  if (p === '/hook') return h['x-desk-buddy'] === '1';
+  return /^application\/json\b/.test(h['content-type'] || '');
 }
 
 function readBody(req) {
@@ -54,29 +70,86 @@ function parseCookies(req) {
   return out;
 }
 
+// Interfaces a phone can't reach (containers, VMs) go last; Tailscale just before them.
+const VIRTUAL_IF = /docker|veth|^br-|vbox|vmnet|vEthernet|bridge|utun|awdl|llw/i;
+
 export function lanAddresses() {
   const out = [];
   for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const a of list || []) {
       if (a.family !== 'IPv4' || a.internal) continue;
-      const tailscale = a.address.startsWith('100.') || /tailscale|utun/i.test(name);
-      out.push({ name, address: a.address, tailscale });
+      const tailscale = a.address.startsWith('100.') || /tailscale/i.test(name);
+      const virtual = !tailscale && (VIRTUAL_IF.test(name) || a.address.startsWith('172.17.'));
+      out.push({ name, address: a.address, tailscale, rank: tailscale ? 1 : virtual ? 2 : 0 });
     }
   }
-  // Prefer ordinary LAN addresses first; Tailscale is a nice fallback.
-  return out.sort((x, y) => Number(x.tailscale) - Number(y.tailscale));
+  return out.sort((x, y) => x.rank - y.rank);
+}
+
+// Demo mode starts mid-afternoon on a productive day, so the summary has something to show.
+function seedDemoStats(stats) {
+  const now = Date.now();
+  stats.data.days = {};
+  Object.assign(stats._day(now), {
+    prompts: 23, tools: 182, files: 14, sessions: 3, activeMs: (4 * 60 + 12) * 60_000,
+    testsPass: 6, testsFail: 2, commits: 5, pushes: 2, firstAt: now - 6 * 3600_000, lastAt: now,
+  });
+  Object.assign(stats.data.lifetime, {
+    prompts: 900, tools: 7400, files: 610, sessions: 120, activeMs: 160 * 3600_000, testsPass: 150, testsFail: 41,
+    commits: 60, pushes: 20, activeDays: 31, streak: 9, bestStreak: 9, lastActiveDay: dayKey(now), since: now - 40 * 86_400_000, hats: [],
+  });
+  stats.rev += 1;
 }
 
 export function startServer({ port, token, host = '0.0.0.0', log = console.log, demo = false }) {
   const state = new BuddyState();
   const usage = new UsageTracker(path.join(claudeDir(), 'projects'));
   const clients = new Set();
+  const armed = new Set();
+  const armedPhones = () => armed.size;
   let pending = null;
+
+  const stats = new Stats(demo ? null : path.join(buddyDir(), 'stats.json'), { log });
+  if (demo) seedDemoStats(stats);
+
+  // Every hook goes through here, real or scripted: the mood, then the day's counters.
+  const applyHook = (ev) => {
+    const seq = state.eventSeq;
+    const changed = state.applyHook(ev);
+    // Counting is a nice-to-have: it must never take the mood display down with it.
+    try { stats.record(ev, state.eventSeq !== seq ? state.event.kind : null); } catch (e) { log(`stats: ${e.message}`); }
+    return changed;
+  };
+
+  // Growth only changes with the counters or the date; don't recompute it every frame.
+  let growthKey = null;
+  let growthVal = null;
+  const currentGrowth = () => {
+    const key = `${stats.rev}:${dayKey()}`;
+    if (key !== growthKey) {
+      growthVal = growth(stats);
+      stats.award(growthVal.hats); // earned hats are kept for good
+      growthKey = `${stats.rev}:${dayKey()}`;
+    }
+    return growthVal;
+  };
+
+  const approvals = new Approvals({
+    settings: () => {
+      const a = loadConfig({ create: false }).approvals || {};
+      return { enabled: Boolean(a.enabled), key: a.key, waitSec: a.waitSec };
+    },
+    onChange: () => broadcast(),
+    log,
+  });
 
   let demoRun = null;
   const snapshot = () => ({
     ...state.snapshot(),
     usage: demoRun ? demoRun.usage() : usage.snapshot(),
+    today: stats.today(),
+    growth: currentGrowth(),
+    approval: approvals.snapshot(),
     demo: Boolean(demoRun),
   });
 
@@ -94,10 +167,18 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     if (demoRun) return;
     try { if (usage.refresh()) broadcast(); } catch (e) { log(`usage: ${e.message}`); }
   };
-  if (demo) demoRun = startDemo({ state, onChange: () => broadcast() });
+  if (demo) demoRun = startDemo({ state, applyHook, onChange: () => broadcast(), onLoop: () => seedDemoStats(stats) });
   refreshUsage();
   const usageTimer = setInterval(refreshUsage, USAGE_REFRESH_MS);
-  const tickTimer = setInterval(() => { if (state.tick()) broadcast(); }, 1000);
+  // Also broadcast at midnight, so "Today" doesn't show yesterday on a quiet phone.
+  let tickDay = dayKey();
+  const tickTimer = setInterval(() => {
+    const day = dayKey();
+    const newDay = day !== tickDay;
+    tickDay = day;
+    approvals.sweep();
+    if (state.tick() || newDay) broadcast();
+  }, 1000);
   const pingTimer = setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20_000);
 
   const authed = (req, url) => {
@@ -123,19 +204,36 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
 
     // ---- Inputs from Claude Code: only accepted from this machine ----
     if (req.method === 'POST' && (p === '/hook' || p === '/status')) {
-      if (!isLoopback(req)) { res.writeHead(403); return res.end(); }
+      if (!isLoopback(req) || !fromLocalTool(req, p)) { res.writeHead(403); return res.end(); }
       const body = await readBody(req);
-      // Answer straight away with a no-op so the hook never slows Claude Code down.
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{}');
+      // A permission question may wait for the phone (only with approvals on and a phone watching).
+      const held = p === '/hook' && body?.hook_event_name === 'PermissionRequest' && !demo && approvals.canHold(armedPhones(), body);
+      if (held) approvals.hold(body, res);
+      else {
+        // Everything else is answered straight away with a no-op, so hooks never slow Claude Code down.
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{}');
+      }
       if (!body) return;
+      if (p === '/hook') approvals.observe(body);
       if (process.env.DESK_BUDDY_DEBUG) log(`${p} ${body.hook_event_name || 'status'} ${body.tool_name || body.notification_type || ''}`);
-      const changed = p === '/hook' ? state.applyHook(body) : state.applyStatus(body);
+      const changed = p === '/hook' ? applyHook(body) : state.applyStatus(body);
       if (changed) broadcast();
       if (p === '/hook' && (body.hook_event_name === 'Stop' || body.hook_event_name === 'SessionStart')) {
         setTimeout(refreshUsage, 1500); // transcript is written just after Stop
       }
       return;
+    }
+
+    // The phone answers a permission question. The token gets you here; the signature decides.
+    if (req.method === 'POST' && p === '/api/approve') {
+      if (!authed(req, url)) { res.writeHead(401); return res.end(); }
+      const body = await readBody(req);
+      const r = approvals.answer(body || {});
+      if (r.ok && r.sessionId) state.permissionAnswered(r.sessionId);
+      if (r.ok) broadcast();
+      res.writeHead(r.ok ? 200 : r.status, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(r.ok ? { ok: true } : { ok: false, error: r.error }));
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
@@ -165,7 +263,13 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
       res.write('retry: 2000\n\n');
       res.write(`data: ${JSON.stringify(snapshot())}\n\n`);
       clients.add(res);
-      req.on('close', () => clients.delete(res));
+      // Only phones with an approval key make permission questions wait.
+      if (url.searchParams.get('armed') === '1') armed.add(res);
+      req.on('close', () => {
+        clients.delete(res);
+        armed.delete(res);
+        if (!armed.size) approvals.releaseAll('no phone'); // nobody left to answer
+      });
       return;
     }
 
@@ -209,6 +313,8 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     clearInterval(tickTimer);
     clearInterval(pingTimer);
     if (demoRun) demoRun.stop();
+    stats.flush();
+    approvals.close();
   });
-  return { server, state, usage };
+  return { server, state, usage, stats, approvals };
 }

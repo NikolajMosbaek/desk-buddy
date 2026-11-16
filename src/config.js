@@ -41,5 +41,10 @@ export function loadConfig({ create = true } = {}) {
 
 export function saveConfig(cfg) {
   fs.mkdirSync(buddyDir(), { recursive: true });
-  fs.writeFileSync(configPath(), JSON.stringify(cfg, null, 2) + '\n', { mode: 0o600 });
+  // Atomic, so the server (which rereads it) never sees half a file; 600, since it holds keys.
+  const file = configPath();
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n', { mode: 0o600 });
+  fs.chmodSync(tmp, 0o600);
+  fs.renameSync(tmp, file);
 }
