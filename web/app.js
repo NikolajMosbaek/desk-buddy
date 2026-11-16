@@ -220,7 +220,9 @@
   }
   function connect() {
     if (es) es.close();
-    es = new EventSource(`/events?t=${encodeURIComponent(token)}`);
+    // `armed`: this phone holds an approval key, so permission questions may wait for it.
+    const armed = window.Settings.get('approveKey') ? '&armed=1' : '';
+    es = new EventSource(`/events?t=${encodeURIComponent(token)}${armed}`);
     es.onmessage = (e) => {
       try {
         state = JSON.parse(e.data);
@@ -232,7 +234,8 @@
     };
     es.onerror = () => setOffline(true);
   }
-  connect();
+  setTimeout(connect, 0); // after every feature module has defined its settings
+  document.addEventListener('buddy:reconnect', () => connect());
   // iOS freezes pages in the background; reconnect when we come back.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { connect(); requestWakeLock(); }

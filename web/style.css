@@ -517,3 +517,5 @@ body.blackout #level-chip { display: none; }
 .set-key input { flex: 1; min-width: 0; font: 16px ui-monospace, Menlo, monospace; text-transform: uppercase; background: #0b0d10; color: var(--fg); border: 1px solid #2c343d; border-radius: 10px; padding: 8px 10px; }
 .set-key input[hidden] { display: none; }
 .set-key .set-button { margin: 0; flex: none; width: auto; padding: 8px 14px; }
+#approval.ap-arming .ap-buttons button, #approval.ap-busy .ap-buttons button { opacity: 0.4; pointer-events: none; }
+#approval .ap-buttons button { transition: opacity 0.3s ease; }

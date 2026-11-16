@@ -30,6 +30,19 @@ function isLoopback(req) {
   return a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1';
 }
 
+// Hooks come from Claude Code and the status line bridge, never from a browser. A web
+// page open on this computer could otherwise POST fake events to 127.0.0.1 (no
+// preflight for a simple POST), or reach it through DNS rebinding.
+function fromLocalTool(req, p) {
+  const h = req.headers;
+  // Browsers send Origin on every cross-site POST. (Not Sec-Fetch-*: Node's own fetch sends those.)
+  if (h.origin) return false;
+  if (!/^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(h.host || '')) return false;
+  // Our hooks send this header (install sets it); a browser can't without a preflight we never answer.
+  if (p === '/hook') return h['x-desk-buddy'] === '1';
+  return /^application\/json\b/.test(h['content-type'] || '');
+}
+
 function readBody(req) {
   return new Promise((resolve) => {
     const chunks = [];
@@ -92,6 +105,8 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
   const state = new BuddyState();
   const usage = new UsageTracker(path.join(claudeDir(), 'projects'));
   const clients = new Set();
+  const armed = new Set();
+  const armedPhones = () => armed.size;
   let pending = null;
 
   const stats = new Stats(demo ? null : path.join(buddyDir(), 'stats.json'), { log });
@@ -161,6 +176,7 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     const day = dayKey();
     const newDay = day !== tickDay;
     tickDay = day;
+    approvals.sweep();
     if (state.tick() || newDay) broadcast();
   }, 1000);
   const pingTimer = setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20_000);
@@ -188,10 +204,10 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
 
     // ---- Inputs from Claude Code: only accepted from this machine ----
     if (req.method === 'POST' && (p === '/hook' || p === '/status')) {
-      if (!isLoopback(req)) { res.writeHead(403); return res.end(); }
+      if (!isLoopback(req) || !fromLocalTool(req, p)) { res.writeHead(403); return res.end(); }
       const body = await readBody(req);
       // A permission question may wait for the phone (only with approvals on and a phone watching).
-      const held = p === '/hook' && body?.hook_event_name === 'PermissionRequest' && !demo && approvals.canHold(clients.size);
+      const held = p === '/hook' && body?.hook_event_name === 'PermissionRequest' && !demo && approvals.canHold(armedPhones(), body);
       if (held) approvals.hold(body, res);
       else {
         // Everything else is answered straight away with a no-op, so hooks never slow Claude Code down.
@@ -247,7 +263,13 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
       res.write('retry: 2000\n\n');
       res.write(`data: ${JSON.stringify(snapshot())}\n\n`);
       clients.add(res);
-      req.on('close', () => clients.delete(res));
+      // Only phones with an approval key make permission questions wait.
+      if (url.searchParams.get('armed') === '1') armed.add(res);
+      req.on('close', () => {
+        clients.delete(res);
+        armed.delete(res);
+        if (!armed.size) approvals.releaseAll('no phone'); // nobody left to answer
+      });
       return;
     }
 
@@ -294,5 +316,5 @@ export function startServer({ port, token, host = '0.0.0.0', log = console.log, 
     stats.flush();
     approvals.close();
   });
-  return { server, state, usage, stats };
+  return { server, state, usage, stats, approvals };
 }

@@ -12,7 +12,7 @@
       clear: 'Forget key', save: 'Save',
       asks: 'Claude asks to', allow: 'Allow', deny: 'Deny',
       verb: { run: 'run', edit: 'edit', write: 'write', read: 'read', search: 'search', browse: 'open', delegate: 'start an agent', plan: 'plan', tool: 'use', say: 'run' },
-      left: (s) => `${s}s left, then the terminal decides`, more: (n) => `+${n - 1} more waiting`,
+      left: (s) => `${s}s left, then the terminal decides`, more: (n) => `1 of ${n}`, claims: 'Claude says:',
       noKey: 'Type the approval key in Settings to answer here.',
       wrong: 'Wrong approval key. Check Settings.', gone: 'Already answered in the terminal.', paused: 'Paused after wrong keys. Try again in a minute.', failed: 'Could not reach the computer.',
     },
@@ -22,7 +22,7 @@
       clear: 'Glem nøgle', save: 'Gem',
       asks: 'Claude vil', allow: 'Tillad', deny: 'Afvis',
       verb: { run: 'køre', edit: 'redigere', write: 'skrive', read: 'læse', search: 'søge', browse: 'åbne', delegate: 'starte en agent', plan: 'planlægge', tool: 'bruge', say: 'køre' },
-      left: (s) => `${s} s tilbage, så afgør terminalen`, more: (n) => `+${n - 1} mere venter`,
+      left: (s) => `${s} s tilbage, så afgør terminalen`, more: (n) => `1 af ${n}`, claims: 'Claude siger:',
       noKey: 'Tast godkendelsesnøglen i Indstillinger for at svare her.',
       wrong: 'Forkert godkendelsesnøgle. Tjek Indstillinger.', gone: 'Allerede besvaret i terminalen.', paused: 'Sat på pause efter forkerte nøgler. Prøv igen om et minut.', failed: 'Kunne ikke nå computeren.',
     },
@@ -53,6 +53,8 @@
   let shownAt = 0;
   let serverSkew = 0;
   let busy = false;
+  let armTimer = null;
+  const ARM_MS = 1200;
 
   function setMsg(text) { $('.ap-msg').textContent = text || ''; }
 
@@ -72,8 +74,13 @@
       setMsg('');
       $('#approval-title').textContent = `${T.asks} ${T.verb[q.verb] || T.verb.tool}${q.verb === 'tool' ? ` ${q.tool}` : ''}`;
       $('.ap-project').textContent = q.project || '';
-      $('.ap-summary').textContent = q.summary || '';
-      $('.ap-summary').hidden = !q.summary;
+      // The description is written by the model: label it, and show the real call below it.
+      $('.ap-summary').textContent = q.claim ? `${T.claims} ${q.claim}` : '';
+      $('.ap-summary').hidden = !q.claim;
+      // Buttons wake up after a moment, so a tap meant for something else can't approve.
+      card.classList.add('ap-arming');
+      clearTimeout(armTimer);
+      armTimer = setTimeout(() => card.classList.remove('ap-arming'), ARM_MS);
       $('.ap-detail').textContent = q.detail || q.tool;
     }
     const hasKey = norm(S.get('approveKey')).length >= 16;
@@ -93,28 +100,37 @@
     serverSkew = (e.detail.serverTime || Date.now()) - Date.now();
     if (e.detail.approval) show(e.detail.approval); else hide();
   });
-  S.onChange((key) => { if (key === 'approveKey' && current) { setMsg(''); show(current); } });
+  S.onChange((key) => {
+    if (key !== 'approveKey') return;
+    document.dispatchEvent(new CustomEvent('buddy:reconnect')); // tell the server whether we're armed
+    if (current) { setMsg(''); show(current); }
+  });
   document.addEventListener('buddy:offline', (e) => { if (e.detail.offline) hide(); });
 
   async function answer(decision) {
     if (!current || busy) return;
     // A tap meant for the buddy must not approve a command that just popped up.
-    if (Date.now() - shownAt < 700) return;
+    if (Date.now() - shownAt < ARM_MS) return;
     busy = true;
-    const id = current.id;
-    const mac = window.BuddyHMAC.hmacHex(norm(S.get('approveKey')), `${id}:${decision}`);
+    card.classList.add('ap-busy');
+    const { id, tool, detail } = current;
+    // Sign exactly what was shown, so the answer can't be moved to another command.
+    const H = window.BuddyHMAC;
+    const digest = Array.from(H.sha256(new TextEncoder().encode(`${tool}\n${detail}`)), (b) => b.toString(16).padStart(2, '0')).join('');
+    const mac = H.hmacHex(norm(S.get('approveKey')), `${id}:${decision}:${digest}`);
     try {
       const r = await fetch(`/api/approve?t=${encodeURIComponent(window.BUDDY_TOKEN || '')}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, decision, mac }),
       });
-      if (r.ok) { if (current && current.id === id) hide(); return; }
+      if (r.ok) { card.classList.remove('ap-busy'); if (current && current.id === id) hide(); busy = false; return; }
       setMsg({ 403: T.wrong, 410: T.gone, 429: T.paused }[r.status] || T.failed);
     } catch {
       setMsg(T.failed);
     }
     busy = false;
+    card.classList.remove('ap-busy');
   }
   $('.ap-allow').addEventListener('click', (e) => { e.stopPropagation(); answer('allow'); });
   $('.ap-deny').addEventListener('click', (e) => { e.stopPropagation(); answer('deny'); });
